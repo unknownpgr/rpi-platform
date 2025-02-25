@@ -9,5 +9,7 @@ add_executable(
     app
     src/main.c
     src/core/dev.c
+    src/core/log.c
     src/motor/motor.c
 )
+target_link_libraries(app m)
