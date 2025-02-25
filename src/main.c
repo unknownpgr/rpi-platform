@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <dev.h>
+#include <motor.h>
 
 int main()
 {
@@ -12,21 +13,18 @@ int main()
         return 1;
     }
 
-    printf("Device initialized\n");
-
-    dev_gpio_set_mode(18, GPIO_FSEL_OUT);
-    dev_gpio_set_pull(18, GPIO_PUD_DOWN);
-
-    for (int i = 0; i < 10; i++)
+    if (!motor_init())
     {
-        printf("[%d] Blinking\n", i);
-        fflush(stdout);
-
-        dev_gpio_set(1 << 18);
-        sleep(1);
-        dev_gpio_clear(1 << 18);
-        sleep(1);
+        printf("Failed to initialize motor\n");
+        return 1;
     }
+
+    motor_enable(true);
+    motor_set_velocity(1.0, 1.0);
+    sleep(1);
+    motor_set_velocity(-1.0, -1.0);
+    sleep(1);
+    motor_enable(false);
 
     return 0;
 }
