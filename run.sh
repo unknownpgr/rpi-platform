@@ -14,6 +14,6 @@ cmake ..
 make
 
 log "Start app"
-./app
+sudo ./app
 
 log "Done"
