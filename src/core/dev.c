@@ -102,12 +102,12 @@ References:
     - https://datasheets.raspberrypi.com/bcm2711/bcm2711-peripherals.pdf (Page 83)
 */
 
-int memfd;
-uint32_t *gpio_map;
-uint32_t *pwm_map[2];
-uint32_t *cm_map;
+static int memfd;
+static uint32_t *gpio_map;
+static uint32_t *pwm_map[2];
+static uint32_t *cm_map;
 
-void __print_binary(uint32_t data)
+static void print_binary(uint32_t data)
 {
     char binary[100];
     int index = 0;
@@ -124,7 +124,7 @@ void __print_binary(uint32_t data)
     printf("%s\n", binary);
 }
 
-uint32_t *get_map(uint32_t base, uint32_t size)
+static uint32_t *get_map(uint32_t base, uint32_t size)
 {
     uint32_t *map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, memfd, base);
     if (map == MAP_FAILED)

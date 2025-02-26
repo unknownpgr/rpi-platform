@@ -16,10 +16,6 @@
 #define GPIO_PUD_DOWN 1
 #define GPIO_PUD_UP 2
 
-extern int memfd;
-extern uint32_t *gpio_map;
-extern uint32_t *pwm_map[2];
-
 bool dev_init();
 
 void dev_gpio_set_mode(uint32_t pin, uint32_t mode);
