@@ -10,7 +10,7 @@ add_executable(
     src/main.c
     src/core/dev.c
     src/core/log.c
-    src/motor/motor.c
-    src/motor/encoder.c
+    src/infra/motor.c
+    src/infra/encoder.c
 )
 target_link_libraries(app m)
