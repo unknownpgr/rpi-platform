@@ -191,16 +191,41 @@ void dev_gpio_set_pull(uint32_t pin, uint32_t pull)
     gpio_map[37] = (gpio_map[37] & ~mask) | ((pull << shift) & mask);
 }
 
-void dev_gpio_set(uint64_t mask)
+void dev_gpio_set_mask(uint64_t mask)
 {
     gpio_map[7] = mask & 0xFFFFFFFF;
     gpio_map[8] = (mask >> 32) & 0xFFFFFFFF;
 }
 
-void dev_gpio_clear(uint64_t mask)
+void dev_gpio_set_pin(uint32_t pin)
+{
+    uint32_t index = pin / 32;
+    uint32_t shift = pin % 32;
+    uint32_t mask = 1 << shift;
+    gpio_map[7 + index] = mask;
+}
+
+void dev_gpio_clear_mask(uint64_t mask)
 {
     gpio_map[10] = mask & 0xFFFFFFFF;
     gpio_map[11] = (mask >> 32) & 0xFFFFFFFF;
+}
+
+void dev_gpio_clear_pin(uint32_t pin)
+{
+    uint32_t index = pin / 32;
+    uint32_t shift = pin % 32;
+    uint32_t mask = 1 << shift;
+    gpio_map[10 + index] = mask;
+}
+
+bool dev_gpio_get_pin(uint32_t pin)
+{
+    uint32_t index = pin / 32;
+    uint32_t shift = pin % 32;
+    uint32_t mask = 1 << shift;
+    uint32_t value = (gpio_map[13 + index] & mask) >> shift;
+    return value;
 }
 
 void dev_pwm_enable(uint32_t index, uint32_t channel)

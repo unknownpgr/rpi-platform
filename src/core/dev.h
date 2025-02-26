@@ -24,8 +24,11 @@ bool dev_init();
 
 void dev_gpio_set_mode(uint32_t pin, uint32_t mode);
 void dev_gpio_set_pull(uint32_t pin, uint32_t pull);
-void dev_gpio_set(uint64_t mask);
-void dev_gpio_clear(uint64_t mask);
+void dev_gpio_set_mask(uint64_t mask);
+void dev_gpio_set_pin(uint32_t pin);
+void dev_gpio_clear_mask(uint64_t mask);
+void dev_gpio_clear_pin(uint32_t pin);
+bool dev_gpio_get_pin(uint32_t pin);
 
 void dev_pwm_enable(uint32_t index, uint32_t channel);
 void dev_pwm_disable(uint32_t index, uint32_t channel);

@@ -33,13 +33,13 @@ void motor_enable(bool enable)
 {
     if (enable)
     {
-        dev_gpio_set(1 << GPIO_PIN_EN);
+        dev_gpio_set_pin(GPIO_PIN_EN);
         dev_pwm_enable(0, 0);
         dev_pwm_enable(0, 1);
     }
     else
     {
-        dev_gpio_clear(1 << GPIO_PIN_EN);
+        dev_gpio_clear_pin(GPIO_PIN_EN);
         dev_pwm_disable(0, 0);
         dev_pwm_disable(0, 1);
     }
@@ -49,14 +49,14 @@ void motor_set_velocity(float vL, float vR)
 {
     if (vR > 0)
     {
-        dev_gpio_set(1 << GPIO_PIN_R_DIR);
+        dev_gpio_set_pin(GPIO_PIN_R_DIR);
         uint32_t data = (uint32_t)((1 - vR) * 1000);
         dev_pwm_set_data(0, 0, data);
         dev_pwm_set_data(0, 1, data);
     }
     else
     {
-        dev_gpio_clear(1 << GPIO_PIN_R_DIR);
+        dev_gpio_clear_pin(GPIO_PIN_R_DIR);
         uint32_t data = (uint32_t)(vR * -1000);
         dev_pwm_set_data(0, 0, data);
         dev_pwm_set_data(0, 1, data);
