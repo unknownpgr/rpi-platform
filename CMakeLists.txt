@@ -11,5 +11,6 @@ add_executable(
     src/core/dev.c
     src/core/log.c
     src/motor/motor.c
+    src/motor/encoder.c
 )
 target_link_libraries(app m)
