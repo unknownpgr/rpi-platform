@@ -20,6 +20,6 @@ void print(const char *format, ...)
     va_end(args);
 
     time_t now = time(NULL);
-    printf("[%02ld] %s", now - start_time, buf);
+    printf("[%02ld] %s\n", now - start_time, buf);
     fflush(stdout);
 }

@@ -121,7 +121,7 @@ static void print_binary(uint32_t data)
         }
     }
     binary[index] = '\0';
-    printf("%s\n", binary);
+    printf("%s", binary);
 }
 
 static uint32_t *get_map(uint32_t base, uint32_t size)
@@ -129,7 +129,6 @@ static uint32_t *get_map(uint32_t base, uint32_t size)
     uint32_t *map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, memfd, base);
     if (map == MAP_FAILED)
     {
-        printf("Could not get mmap\n");
         return NULL;
     }
     return map;
@@ -141,7 +140,6 @@ bool dev_init()
     memfd = open("/dev/mem", O_RDWR | O_SYNC);
     if (memfd < 0)
     {
-        printf("Could not open mem\n");
         return false;
     }
 
