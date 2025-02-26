@@ -9,12 +9,18 @@
 
 // BCM2711
 #define GPIO_BASE 0x3F200000
-#define PWM0_BASE 0x3F20C000
-#define PWM1_BASE 0x3F20C800
 
-// Some MIRACLE register addresses
-// Refer to: https://forums.raspberrypi.com/viewtopic.php?t=37770
+#define PAGE_SIZE 4096
+
+// Note: base address must be aligned to page size (4kB)
+#define PWM_BASE 0x3F20C000
+#define PWM0_OFFSET 0x000
+#define PWM1_OFFSET 0x800
+
 #define CM_BASE 0x3F101000
+// Note: this registers(0x3F1010A0, 0x3F1010A4) are not properly documented.
+#define CM_PWMCTL_OFFSET 0xA0
+#define CM_PWMDIV_OFFSET 0xA4
 
 /*
 Clock Manager Register (CM_CTL) Layout
@@ -90,6 +96,7 @@ Clock Manager Register (CM_DIV) Layout
 
 
 References:
+    - https://forums.raspberrypi.com/viewtopic.php?t=37770
     - https://pages.hmc.edu/harris/class/e155/09_Ch%2009_online.pdf (Page 31)
     - https://cs140e.sergio.bz/docs/BCM2837-ARM-Peripherals.pdf (Page 107)
     - https://datasheets.raspberrypi.com/bcm2711/bcm2711-peripherals.pdf (Page 83)
@@ -139,7 +146,7 @@ bool dev_init()
     }
 
     // Map GPIO memory
-    gpio_map = get_map(GPIO_BASE, 4096);
+    gpio_map = get_map(GPIO_BASE, PAGE_SIZE);
     if (!gpio_map)
     {
         close(memfd);
@@ -147,18 +154,17 @@ bool dev_init()
     }
 
     // Map PWM memory
-    // Note: base address must be aligned to 4KB
-    uint32_t *pwm0_base = get_map(PWM0_BASE, 4096);
+    uint32_t *pwm0_base = get_map(PWM_BASE, PAGE_SIZE);
     if (!pwm0_base)
     {
         close(memfd);
         return false;
     }
-    pwm_map[0] = pwm0_base;
-    pwm_map[1] = pwm0_base + (PWM1_BASE - PWM0_BASE) / 4;
+    pwm_map[0] = pwm0_base + PWM0_OFFSET / 4;
+    pwm_map[1] = pwm0_base + PWM1_OFFSET / 4;
 
     // Map clock manager memory
-    cm_map = get_map(CM_BASE, 4096);
+    cm_map = get_map(CM_BASE, PAGE_SIZE);
     if (!cm_map)
     {
         close(memfd);
@@ -199,44 +205,43 @@ void dev_gpio_clear(uint64_t mask)
 
 void dev_pwm_enable(uint32_t index, uint32_t channel)
 {
-#define wait(cond) \
+#define WAIT(cond) \
     while (cond)   \
         ;
-#define set(reg, bit) (reg |= (1 << (channel * 8 + bit)))
-#define cls(reg, bit) (reg &= ~(1 << (channel * 8 + bit)))
+#define SET(reg, bit, value) ((reg) = ((reg) & ~(1 << ((channel) * 8 + (bit)))) | (value << ((channel) * 8 + (bit))))
+#define PASSWORD 0x5A000000
 
     uint32_t *ctl = pwm_map[index] + 0;
-    uint32_t *cm_ctl = cm_map + 0xA0 / 4;
-    uint32_t *cm_div = cm_map + 0xA4 / 4;
+    uint32_t *cm_ctl = cm_map + CM_PWMCTL_OFFSET / 4;
+    uint32_t *cm_div = cm_map + CM_PWMDIV_OFFSET / 4;
 
-    *ctl = 0; // Disable PWM
+    // Disable PWM
+    *ctl = 0;
 
     // Configure clock manager
-    *cm_ctl = 0x5A000000 | (*cm_ctl & ~(1 << 4));  // Turn off enable flag
-    wait(*cm_ctl & (1 << 7));                      // Wait for clock to be turned off
-    *cm_div = 0x5A000000 | *cm_ctl | (0x64 << 12); // Configure divider (/100)
-    *cm_ctl = 0x5A000000 | *cm_ctl | (1 << 9);     // Set MASH to 1-stage
-    *cm_ctl = 0x5A000000 | *cm_ctl | 6;            // Set clock source to PLLD per (500MHz)
-    *cm_ctl = 0x5A000000 | *cm_ctl | (1 << 4);     // Turn on enable flag
-    wait(!(*cm_ctl & (1 << 7)));                   // Wait for clock to be turned on
-
-    // Therefore it would configure the PWM clock to 5MHz
+    *cm_ctl = PASSWORD | (*cm_ctl & ~(1 << 4));  // Turn off enable flag
+    WAIT(*cm_ctl & (1 << 7));                    // Wait for clock to be turned off
+    *cm_div = PASSWORD | *cm_ctl | (0x64 << 12); // Configure divider (/100)
+    *cm_ctl = PASSWORD | *cm_ctl | (1 << 9);     // Set MASH to 1-stage
+    *cm_ctl = PASSWORD | *cm_ctl | 6;            // Set clock source to PLLD per (500MHz)
+    *cm_ctl = PASSWORD | *cm_ctl | (1 << 4);     // Turn on enable flag
+    WAIT(!(*cm_ctl & (1 << 7)));                 // Wait for clock to be turned on
+    // Therefore it would configure the PWM clock to 5MHz (500MHz / 100)
 
     uint32_t reg = *ctl;
-    set(reg, 0); // Enable PWM channel
-    cls(reg, 1); // Set to PWM mode
-    cls(reg, 2); // Do not repeat
-    cls(reg, 3); // Set state to LOW when there is no data
-    cls(reg, 4); // Do not invert the polarity
-    cls(reg, 5); // Disable FIFO
-    set(reg, 6); // Clear FIFO
-    set(reg, 7); // Use M/S mode
-
+    SET(reg, 0, 1); // Enable PWM channel
+    SET(reg, 1, 0); // Set to PWM mode
+    SET(reg, 2, 0); // Do not repeat
+    SET(reg, 3, 0); // Set state to LOW when there is no data
+    SET(reg, 4, 0); // Do not invert the polarity
+    SET(reg, 5, 0); // Disable FIFO
+    SET(reg, 6, 1); // Clear FIFO
+    SET(reg, 7, 1); // Use M/S mode
     *ctl = reg;
 
-#undef wait
-#undef set
-#undef cls
+#undef WAIT
+#undef SET
+#undef PASSWORD
 }
 
 void dev_pwm_disable(uint32_t index, uint32_t channel)
