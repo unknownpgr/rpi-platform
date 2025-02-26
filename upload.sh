@@ -16,5 +16,7 @@ cd `dirname $0`
 rsync --exclude-from=.rsyncignore -avz . $TARGET:$TARGET_PATH
 
 # Execute
+# Note: -t option is used to force pseudo-terminal allocation.
+# Program would not receive SIGINT signal if it's not attached to a terminal.
 log "Executing run.sh on $TARGET"
-ssh $TARGET "cd $TARGET_PATH && chmod +x run.sh && ./run.sh"
+ssh -t $TARGET "bash $TARGET_PATH/run.sh"

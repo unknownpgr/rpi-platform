@@ -1,13 +1,68 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <dev.h>
 #include <motor.h>
 #include <log.h>
 #include <math.h>
 #include <encoder.h>
+#include <signal.h>
+
+void signal_handler()
+{
+    // Disable motor
+    motor_enable(false);
+
+    // Disable PWM
+    dev_pwm_disable(0, 0);
+    dev_pwm_disable(0, 1);
+    dev_pwm_disable(1, 0);
+    dev_pwm_disable(1, 1);
+
+    // Clear all GPIO
+    dev_gpio_clear_mask(0xFFFFFFFFFFFFFFFF);
+
+    // Exit program
+    exit(0);
+}
+
+void set_signal_handler()
+{
+    struct sigaction action;
+    action.sa_handler = signal_handler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+
+    sigaction(SIGHUP, &action, NULL);
+    sigaction(SIGINT, &action, NULL);
+    sigaction(SIGQUIT, &action, NULL);
+    sigaction(SIGILL, &action, NULL);
+    sigaction(SIGABRT, &action, NULL);
+    sigaction(SIGFPE, &action, NULL);
+    sigaction(SIGSEGV, &action, NULL);
+    sigaction(SIGPIPE, &action, NULL);
+    sigaction(SIGTERM, &action, NULL);
+}
+
+void print_index(uint8_t index)
+{
+    index = index % 16;
+    char buffer[17];
+    for (uint8_t i = 0; i < 16; i++)
+    {
+        if (i == index)
+            buffer[i] = 'X';
+        else
+            buffer[i] = '-';
+    }
+    buffer[16] = '\0';
+    printf("Index: %02d %s\r", index, buffer);
+    fflush(stdout);
+}
 
 int main()
 {
+    set_signal_handler();
     print("Program started");
 
     if (!dev_init())
