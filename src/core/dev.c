@@ -246,12 +246,12 @@ void dev_pwm_enable(uint32_t index, uint32_t channel)
     // Configure clock manager
     *cm_ctl = PASSWORD | (*cm_ctl & ~(1 << 4));  // Turn off enable flag
     WAIT(*cm_ctl & (1 << 7));                    // Wait for clock to be turned off
-    *cm_div = PASSWORD | *cm_ctl | (0x64 << 12); // Configure divider (/100)
+    *cm_div = PASSWORD | *cm_ctl | (0x19 << 12); // Configure divider (/25)
     *cm_ctl = PASSWORD | *cm_ctl | (1 << 9);     // Set MASH to 1-stage
     *cm_ctl = PASSWORD | *cm_ctl | 6;            // Set clock source to PLLD per (500MHz)
     *cm_ctl = PASSWORD | *cm_ctl | (1 << 4);     // Turn on enable flag
     WAIT(!(*cm_ctl & (1 << 7)));                 // Wait for clock to be turned on
-    // Therefore it would configure the PWM clock to 5MHz (500MHz / 100)
+    // Therefore it would configure the PWM clock to 500MHz / 25 = 20MHz
 
     uint32_t reg = *ctl;
     SET(reg, 0, 1); // Enable PWM channel
