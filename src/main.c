@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <math.h>
+#include <fcntl.h>
 
 #include <log.h>
 #include <dev.h>
@@ -76,6 +77,19 @@ void init()
         exit(1);
     }
     print("Encoder initialized");
+
+    // Set CPU governor to performance
+    int fd = open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", O_WRONLY);
+    if (fd != -1)
+    {
+        write(fd, "performance", 11);
+        close(fd);
+    }
+    else
+    {
+        print("Failed to set CPU governor to performance");
+        exit(1);
+    }
 }
 
 int main()
