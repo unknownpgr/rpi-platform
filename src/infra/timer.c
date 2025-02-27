@@ -28,6 +28,13 @@ void timer_update()
     timer_prev_ns = timer_ns;
 }
 
+void timer_sleep_ns(uint32_t ns)
+{
+    uint32_t start_time = timer_get_ns();
+    while ((timer_get_ns() - start_time) % TIMER_NS_MAX < ns)
+        ;
+}
+
 uint32_t timer_get_s()
 {
     timer_update();

@@ -7,5 +7,6 @@
 
 bool timer_init();
 void timer_update();
+void timer_sleep_ns(uint32_t ns);
 uint32_t timer_get_s();
 uint32_t timer_get_ns();
