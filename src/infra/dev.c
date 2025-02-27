@@ -245,7 +245,7 @@ void dev_pwm_enable(uint32_t index, uint32_t channel)
     *cm_ctl = PASSWORD | (*cm_ctl & ~(1 << 4));  // Turn off enable flag
     WAIT(*cm_ctl & (1 << 7));                    // Wait for clock to be turned off
     *cm_div = PASSWORD | *cm_ctl | (0x19 << 12); // Configure divider (/25)
-    *cm_ctl = PASSWORD | *cm_ctl | (1 << 9);     // Set MASH to 1-stage
+    *cm_ctl = PASSWORD | *cm_ctl & (0b111 << 9); // Set MASH to 0
     *cm_ctl = PASSWORD | *cm_ctl | 6;            // Set clock source to PLLD per (500MHz)
     *cm_ctl = PASSWORD | *cm_ctl | (1 << 4);     // Turn on enable flag
     WAIT(!(*cm_ctl & (1 << 7)));                 // Wait for clock to be turned on
