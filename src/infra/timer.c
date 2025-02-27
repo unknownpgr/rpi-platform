@@ -22,7 +22,9 @@ void timer_update()
 
     // Calculate time since last update
     if (timer_ns < timer_prev_ns)
+    {
         timer_s++;
+    }
     timer_prev_ns = timer_ns;
 }
 
