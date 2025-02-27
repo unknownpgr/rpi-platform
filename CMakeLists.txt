@@ -12,6 +12,7 @@ add_executable(
     
     src/core/services/log.c
     src/core/services/knob-service.c
+    src/core/services/music-service.c
 
     src/infra/dev.c
     src/infra/motor.c

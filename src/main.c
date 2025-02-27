@@ -12,8 +12,9 @@
 #include <timer.h>
 
 #include <knob-service.h>
+#include <music-service.h>
 
-void signal_handler()
+void handle_exit()
 {
     // Disable motor
     motor_enable(false);
@@ -35,7 +36,7 @@ void init()
 {
     // Configure signal handler
     struct sigaction action;
-    action.sa_handler = signal_handler;
+    action.sa_handler = handle_exit;
     sigemptyset(&action.sa_mask);
     action.sa_flags = 0;
     sigaction(SIGHUP, &action, NULL);
@@ -101,7 +102,9 @@ int main()
     // Initialization
     init();
 
-    knob_test();
+    play_music("../assets/drip.raw");
+
+    handle_exit();
 
     return 0;
 }
