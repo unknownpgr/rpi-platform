@@ -4,12 +4,12 @@ project(RPi, C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
-include_directories(src/core)
+include_directories(src/core/interfaces)
 add_executable(
     app
     src/main.c
-    src/core/dev.c
-    src/core/log.c
+    src/core/services/log.c
+    src/infra/dev.c
     src/infra/motor.c
     src/infra/encoder.c
     src/infra/timer.c
