@@ -1,25 +1,33 @@
 #include <stdio.h>
 #include <stdarg.h>
-#include <time.h>
 #include <stdint.h>
-#include <log.h>
 
-uint32_t start_time = 0;
+#include <log.h>
+#include <timer.h>
+
+float start_time_s = -1;
 
 void print(const char *format, ...)
 {
-    if (start_time == 0)
+    // Get current seconds in float
+    float s = timer_get_ns() / 1000000000.f + timer_get_s();
+
+    // Initialize start_time_s if it is not initialized
+    if (start_time_s < 0)
     {
-        start_time = time(NULL);
+        // Skip initialization if timer is not initialized
+        if (s > 0)
+        {
+            start_time_s = s;
+        }
     }
 
-    char buf[1000];
+    char buf[1024];
     va_list args;
     va_start(args, format);
     vsnprintf(buf, sizeof(buf), format, args);
     va_end(args);
 
-    time_t now = time(NULL);
-    printf("[%02ld] %s\n", now - start_time, buf);
+    printf("[%03.3f] %s\n", (s - start_time_s), buf);
     fflush(stdout);
 }
