@@ -12,5 +12,6 @@ add_executable(
     src/core/log.c
     src/infra/motor.c
     src/infra/encoder.c
+    src/infra/timer.c
 )
 target_link_libraries(app m)
