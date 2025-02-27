@@ -7,8 +7,12 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 include_directories(src/core/interfaces)
 add_executable(
     app
+    
     src/main.c
+    
     src/core/services/log.c
+    src/core/services/knob-service.c
+
     src/infra/dev.c
     src/infra/motor.c
     src/infra/encoder.c

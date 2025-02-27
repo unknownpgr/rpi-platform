@@ -11,6 +11,8 @@
 #include <encoder.h>
 #include <timer.h>
 
+#include <knob-service.h>
+
 void signal_handler()
 {
     // Disable motor
@@ -99,17 +101,7 @@ int main()
     // Initialization
     init();
 
-    uint32_t start_ns = timer_get_ns();
-    uint32_t ns;
-    uint64_t counter = 0;
-    while ((uint32_t)((ns = timer_get_ns()) - start_ns) % TIMER_NS_MAX < 100000000)
-    {
-        counter++;
-    }
-
-    print("Counter: %d", counter);
-    print("Time: %lld", ns - start_ns);
-    print("Frequency: %fMHz", (float)counter / ((float)(ns - start_ns) / 1000.0f));
+    knob_test();
 
     return 0;
 }

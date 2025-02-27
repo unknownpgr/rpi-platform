@@ -6,72 +6,43 @@
 
 #include <encoder.h>
 #include <motor.h>
+#include <timer.h>
+#include <log.h>
 
-void print_index(uint8_t index)
+typedef struct
 {
-    index = index % 16;
-    char buffer[17];
-    for (uint8_t i = 0; i < 16; i++)
-    {
-        if (i == index)
-            buffer[i] = 'X';
-        else
-            buffer[i] = '-';
-    }
-    buffer[16] = '\0';
-    printf("Index: %02d %s\r", index, buffer);
-    fflush(stdout);
+    uint32_t interval_ns;
+    uint32_t last_time_ns;
+} interval_t;
+
+interval_t create_interval(uint32_t interval_ns)
+{
+    interval_t interval = {
+        .interval_ns = interval_ns,
+        .last_time_ns = timer_get_ns(),
+    };
+    return interval;
 }
+
+#define ON(interval, code)                                                                             \
+    if ((TIMER_NS_MAX + timer_get_ns() - interval.last_time_ns) % TIMER_NS_MAX > interval.interval_ns) \
+    {                                                                                                  \
+        interval.last_time_ns = (interval.last_time_ns + interval.interval_ns) % TIMER_NS_MAX;         \
+        {code};                                                                                        \
+    }
 
 void knob_test()
 {
-    float gain_p = 0.002;
-    float gain_i = 0.00002;
-    float gain_d = 0.0001;
-
-    int32_t div = 1024;
-
-    float max_speed = 0.15;
-    float error_accum = 0;
-    float error_prev = 0;
-    uint32_t target_position = 0;
-    uint32_t current_position = 0;
-    uint8_t index = 0;
-
+    int counter = 0;
+    print("Start counter");
+    interval_t interval = create_interval(10000000);
     while (true)
     {
-        encoder_update();
-        encoder_get_counts(&current_position, &current_position);
-
-        int32_t error = target_position - current_position;
-
-        if (error > (div / 2))
-        {
-            target_position -= div;
-            index--;
-            print_index(index);
-        }
-        else if (error < -(div / 2))
-        {
-            target_position += div;
-            index++;
-            print_index(index);
-        }
-
-        error_accum += error;
-        if (error_accum > 5000)
-            error_accum = 5000;
-        if (error_accum < -5000)
-            error_accum = -5000;
-
-        float error_diff = error - error_prev;
-        error_prev = error;
-
-        float speed = -(gain_p * error + gain_i * error_accum + gain_d * error_diff);
-        if (speed > max_speed)
-            speed = max_speed;
-        if (speed < -max_speed)
-            speed = -max_speed;
-        motor_set_velocity(0, speed);
+        ON(interval, {
+            counter++;
+            if (counter >= 1000)
+                break;
+        })
     }
+    print("Counter: %d", counter);
 }
