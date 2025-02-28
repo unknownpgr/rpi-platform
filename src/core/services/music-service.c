@@ -11,7 +11,7 @@
 #include <motor.h>
 #include <timer.h>
 
-void play_music(char *music_file_path)
+void music_play(char *music_file_path)
 {
     int fd = open(music_file_path, O_RDONLY);
     if (fd == -1)

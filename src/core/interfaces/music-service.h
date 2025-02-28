@@ -1,3 +1,3 @@
 #pragma once
 
-void play_music(char *music_file_path);
+void music_play(char *music_file_path);
