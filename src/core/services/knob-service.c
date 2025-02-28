@@ -24,11 +24,11 @@ interval_t create_interval(uint32_t interval_ns)
     return interval;
 }
 
-#define ON(interval, code)                                                                             \
-    if ((TIMER_NS_MAX + timer_get_ns() - interval.last_time_ns) % TIMER_NS_MAX > interval.interval_ns) \
-    {                                                                                                  \
-        interval.last_time_ns = (interval.last_time_ns + interval.interval_ns) % TIMER_NS_MAX;         \
-        {code};                                                                                        \
+#define ON(interval, code)                                                          \
+    if (DIFF(timer_get_ns(), interval.last_time_ns) > interval.interval_ns)         \
+    {                                                                               \
+        interval.last_time_ns = ACCUM(interval.last_time_ns, interval.interval_ns); \
+        {code};                                                                     \
     }
 
 double clip(double value, double abs_max)
@@ -64,7 +64,7 @@ void knob_test()
         ON(interval, {
             // Get time difference
             uint32_t current_time = timer_get_ns();
-            double dt_s = (TIMER_NS_MAX + current_time - last_time) % TIMER_NS_MAX / 1e9;
+            double dt_s = DIFF(current_time, last_time) / 1e9;
             last_time = current_time;
 
             // Get current position

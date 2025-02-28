@@ -48,7 +48,7 @@ void play_music(char *music_file_path)
     while (true)
     {
         uint32_t current_time = timer_get_ns();
-        uint32_t elapsed_time = (current_time - last_time) % TIMER_NS_MAX;
+        uint32_t elapsed_time = DIFF(current_time, last_time);
         if (elapsed_time >= 22676)
         {
             last_time = current_time;

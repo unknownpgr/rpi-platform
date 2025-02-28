@@ -4,9 +4,11 @@
 #include <stdbool.h>
 
 #define TIMER_NS_MAX 1000000000
+#define DIFF(to, from) ((TIMER_NS_MAX + (to) - (from)) % TIMER_NS_MAX)
+#define ACCUM(from, diff) (((from) + (diff)) % TIMER_NS_MAX)
 
 bool timer_init();
-void timer_update();
+void timer_update(); // NOTE: This function must be called at least once every .5 seconds
 void timer_sleep_ns(uint32_t ns);
 uint32_t timer_get_s();
 uint32_t timer_get_ns();
