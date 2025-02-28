@@ -8,16 +8,18 @@
 #include <log.h>
 
 // BCM2711
-#define GPIO_BASE 0x3F200000
+#define PERI_BASE 0x3F000000
+#define GPIO_BASE (PERI_BASE + 0x200000)
 
 #define PAGE_SIZE 4096
 
 // Note: base address must be aligned to page size (4kB)
-#define PWM_BASE 0x3F20C000
+#define PWM_BASE (PERI_BASE + 0x20C000)
 #define PWM0_OFFSET 0x000
 #define PWM1_OFFSET 0x800
 
 #define CM_BASE 0x3F101000
+#define GPCLK_OFFSET 0x70
 // Note: this registers(0x3F1010A0, 0x3F1010A4) are not properly documented.
 #define CM_PWMCTL_OFFSET 0xA0
 #define CM_PWMDIV_OFFSET 0xA4
@@ -172,6 +174,8 @@ bool dev_init()
     return true;
 }
 
+// GPIO
+
 void dev_gpio_set_mode(uint32_t pin, uint32_t mode)
 {
     // Each GPIO pin has 3 bits for mode
@@ -226,6 +230,8 @@ bool dev_gpio_get_pin(uint32_t pin)
     return value;
 }
 
+// PWM
+
 void dev_pwm_enable(uint32_t index, uint32_t channel)
 {
 #define WAIT(cond) \
@@ -242,13 +248,13 @@ void dev_pwm_enable(uint32_t index, uint32_t channel)
     *ctl = 0;
 
     // Configure clock manager
-    *cm_ctl = PASSWORD | (*cm_ctl & ~(1 << 4));  // Turn off enable flag
-    WAIT(*cm_ctl & (1 << 7));                    // Wait for clock to be turned off
-    *cm_div = PASSWORD | *cm_ctl | (0x19 << 12); // Configure divider (/25)
-    *cm_ctl = PASSWORD | *cm_ctl & (0b111 << 9); // Set MASH to 0
-    *cm_ctl = PASSWORD | *cm_ctl | 6;            // Set clock source to PLLD per (500MHz)
-    *cm_ctl = PASSWORD | *cm_ctl | (1 << 4);     // Turn on enable flag
-    WAIT(!(*cm_ctl & (1 << 7)));                 // Wait for clock to be turned on
+    *cm_ctl = PASSWORD | (*cm_ctl & ~(1 << 4));   // Turn off enable flag
+    WAIT(*cm_ctl & (1 << 7));                     // Wait for clock to be turned off
+    *cm_div = PASSWORD | *cm_div | (0x19 << 12);  // Configure divider (/25)
+    *cm_ctl = PASSWORD | *cm_ctl & ~(0b111 << 9); // Set MASH to 0
+    *cm_ctl = PASSWORD | *cm_ctl | 6;             // Set clock source to PLLD per (500MHz)
+    *cm_ctl = PASSWORD | *cm_ctl | (1 << 4);      // Turn on enable flag
+    WAIT(!(*cm_ctl & (1 << 7)));                  // Wait for clock to be turned on
     // Therefore it would configure the PWM clock to 500MHz / 25 = 20MHz
 
     uint32_t reg = *ctl;
@@ -288,4 +294,43 @@ void dev_pwm_set_data(uint32_t index, uint32_t channel, uint32_t data)
 {
     uint32_t *dat = pwm_map[index] + 5 + channel * 4;
     *dat = data;
+}
+
+// GPCLK
+
+void dev_gpclk_enable(uint32_t index, bool enable)
+{
+    uint32_t *cm_ctl = cm_map + 0x70 / 4 + index * 0x08 / 4;
+    uint32_t *cm_div = cm_map + 0x74 / 4 + index * 0x08 / 4;
+
+    if (!enable)
+    {
+        *cm_ctl = 0x5A000000 | *cm_ctl & ~(1 << 4); // Disable flag
+        while (*cm_ctl & (1 << 7))
+            ;
+        return;
+    }
+
+    *cm_ctl = 0x5A000000 | *cm_ctl & ~(1 << 4); // Disable
+    while (*cm_ctl & (1 << 7))
+        ;
+    *cm_div = 0x5A000000 | 0x1 << 12;          // Divisor 1
+    *cm_ctl = 0x5A000000 | 0x06;               // Clock source: PLLD
+    *cm_ctl = 0x5A000000 | *cm_ctl | (1 << 4); // Enable
+    while (!(*cm_ctl & (1 << 7)))
+        ;
+}
+
+void dev_gpclk_set_divisor(uint32_t index, uint32_t integer, uint32_t fraction)
+{
+    uint32_t *cm_ctl = cm_map + 0x70 / 4 + index * 0x08 / 4;
+    uint32_t *cm_div = cm_map + 0x74 / 4 + index * 0x08 / 4;
+
+    *cm_ctl = 0x5A000000 | *cm_ctl & ~(1 << 4); // Disable
+    while (*cm_ctl & (1 << 7))
+        ;
+    *cm_div = 0x5A000000 | (integer & 0xFFF) << 12 | (fraction & 0xFFF);
+    *cm_ctl = 0x5A000000 | *cm_ctl | (1 << 4); // Enable
+    while (!(*cm_ctl & (1 << 7)))
+        ;
 }

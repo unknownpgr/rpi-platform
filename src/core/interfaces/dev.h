@@ -30,3 +30,6 @@ void dev_pwm_enable(uint32_t index, uint32_t channel);
 void dev_pwm_disable(uint32_t index, uint32_t channel);
 void dev_pwm_set_range(uint32_t index, uint32_t channel, uint32_t range);
 void dev_pwm_set_data(uint32_t index, uint32_t channel, uint32_t data);
+
+void dev_gpclk_enable(uint32_t index, bool enable);
+void dev_gpclk_set_divisor(uint32_t index, uint32_t integer, uint32_t fraction);

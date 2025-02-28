@@ -13,6 +13,7 @@
 
 #include <knob-service.h>
 #include <music-service.h>
+#include <radio-service.h>
 
 void handle_exit()
 {
@@ -102,7 +103,8 @@ int main()
     // Initialization
     init();
 
-    play_music("../assets/drip.raw");
+    // music_play("../assets/drip.raw");
+    radio_play("../assets/drip.raw");
 
     handle_exit();
 
