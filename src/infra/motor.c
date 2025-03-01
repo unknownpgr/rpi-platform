@@ -18,16 +18,15 @@ bool motor_init()
     dev_gpio_set_mode(GPIO_PIN_EN, GPIO_FSEL_OUT);
     dev_gpio_set_mode(GPIO_PIN_L_DIR, GPIO_FSEL_OUT);
     dev_gpio_set_mode(GPIO_PIN_R_DIR, GPIO_FSEL_OUT);
+    dev_gpio_set_mode(GPIO_PIN_L_PWM, GPIO_FSEL_ALT0);
+    dev_gpio_set_mode(GPIO_PIN_R_PWM, GPIO_FSEL_ALT0);
 
     dev_gpio_set_pull(GPIO_PIN_EN, GPIO_PUD_DOWN);
     dev_gpio_set_pull(GPIO_PIN_L_DIR, GPIO_PUD_DOWN);
     dev_gpio_set_pull(GPIO_PIN_R_DIR, GPIO_PUD_DOWN);
 
-    dev_gpio_set_mode(GPIO_PIN_L_PWM, GPIO_FSEL_ALT0);
-    dev_gpio_set_mode(GPIO_PIN_R_PWM, GPIO_FSEL_ALT0);
-
-    dev_pwm_set_range(0, 0, MOTOR_PWM_RANGE);
-    dev_pwm_set_range(0, 1, MOTOR_PWM_RANGE);
+    dev_pwm_set_range(0, MOTOR_PWM_RANGE);
+    dev_pwm_set_range(1, MOTOR_PWM_RANGE);
 
     return true;
 }
@@ -37,15 +36,13 @@ void motor_enable(bool enable)
     if (enable)
     {
         dev_gpio_set_pin(GPIO_PIN_EN);
-        dev_pwm_enable(0, 0);
-        dev_pwm_enable(0, 1);
     }
     else
     {
         dev_gpio_clear_pin(GPIO_PIN_EN);
-        dev_pwm_disable(0, 0);
-        dev_pwm_disable(0, 1);
     }
+    dev_pwm_enable(0, enable);
+    dev_pwm_enable(1, enable);
 }
 
 void motor_set_velocity(float vL, float vR)
@@ -53,15 +50,17 @@ void motor_set_velocity(float vL, float vR)
     if (vR > 0)
     {
         dev_gpio_set_pin(GPIO_PIN_R_DIR);
+        dev_gpio_clear_pin(GPIO_PIN_L_DIR);
         uint32_t data = (uint32_t)((1 - vR) * MOTOR_PWM_RANGE);
-        dev_pwm_set_data(0, 0, data);
-        dev_pwm_set_data(0, 1, data);
+        dev_pwm_set_data(0, data);
+        dev_pwm_set_data(1, data);
     }
     else
     {
         dev_gpio_clear_pin(GPIO_PIN_R_DIR);
+        dev_gpio_set_pin(GPIO_PIN_L_DIR);
         uint32_t data = (uint32_t)(vR * -MOTOR_PWM_RANGE);
-        dev_pwm_set_data(0, 0, data);
-        dev_pwm_set_data(0, 1, data);
+        dev_pwm_set_data(0, data);
+        dev_pwm_set_data(1, data);
     }
 }

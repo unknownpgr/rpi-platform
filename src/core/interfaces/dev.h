@@ -26,10 +26,9 @@ void dev_gpio_clear_mask(uint64_t mask);
 void dev_gpio_clear_pin(uint32_t pin);
 bool dev_gpio_get_pin(uint32_t pin);
 
-void dev_pwm_enable(uint32_t index, uint32_t channel);
-void dev_pwm_disable(uint32_t index, uint32_t channel);
-void dev_pwm_set_range(uint32_t index, uint32_t channel, uint32_t range);
-void dev_pwm_set_data(uint32_t index, uint32_t channel, uint32_t data);
+void dev_pwm_enable(uint32_t channel, bool enable);
+void dev_pwm_set_range(uint32_t channel, uint32_t range);
+void dev_pwm_set_data(uint32_t channel, uint32_t data);
 
 void dev_gpclk_enable(uint32_t index, bool enable);
 void dev_gpclk_set_divisor(uint32_t index, uint32_t integer, uint32_t fraction);

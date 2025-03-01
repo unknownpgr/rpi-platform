@@ -7,22 +7,35 @@
 #include <dev.h>
 #include <log.h>
 
-// BCM2711
-#define PERI_BASE 0x3F000000
-#define GPIO_BASE (PERI_BASE + 0x200000)
-
 #define PAGE_SIZE 4096
 
+// BCM2711
+#define PERI_BASE 0x3F000000
+
 // Note: base address must be aligned to page size (4kB)
+#define GPIO_BASE (PERI_BASE + 0x200000)
+#define GPIO_FSEL_OFFSET 0x00
+#define GPIO_SET_OFFSET 0x1C
+#define GPIO_CLR_OFFSET 0x28
+#define GPIO_LEV_OFFSET 0x34
+#define GPIO_PUD_OFFSET 0x94
+#define GPIO_PUDCLK_OFFSET 0x98
+
 #define PWM_BASE (PERI_BASE + 0x20C000)
 #define PWM0_OFFSET 0x000
 #define PWM1_OFFSET 0x800
 
+// Note: PWM registers(0x3F1010A0, 0x3F1010A4) are not properly documented.
 #define CM_BASE 0x3F101000
 #define GPCLK_OFFSET 0x70
-// Note: this registers(0x3F1010A0, 0x3F1010A4) are not properly documented.
 #define CM_PWMCTL_OFFSET 0xA0
 #define CM_PWMDIV_OFFSET 0xA4
+
+// Utility macros
+#define WAIT(cond) \
+    while (cond)   \
+        ;
+#define SET(reg, bit, value) ((reg) = ((reg) & ~(1 << (bit))) | (value << (bit)))
 
 /*
 Clock Manager Register (CM_CTL) Layout
@@ -104,10 +117,9 @@ References:
     - https://datasheets.raspberrypi.com/bcm2711/bcm2711-peripherals.pdf (Page 83)
 */
 
-static int memfd;
-static uint32_t *gpio_map;
-static uint32_t *pwm_map[2];
-static uint32_t *cm_map;
+static uint32_t *gpio_base;
+static uint32_t *pwm_base;
+static uint32_t *cm_base;
 
 static void print_binary(uint32_t data)
 {
@@ -126,7 +138,7 @@ static void print_binary(uint32_t data)
     printf("%s", binary);
 }
 
-static uint32_t *get_map(uint32_t base, uint32_t size)
+static uint32_t *get_map(int memfd, uint32_t base, uint32_t size)
 {
     uint32_t *map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, memfd, base);
     if (map == MAP_FAILED)
@@ -139,37 +151,38 @@ static uint32_t *get_map(uint32_t base, uint32_t size)
 bool dev_init()
 {
     // Get memory device file descriptor
-    memfd = open("/dev/mem", O_RDWR | O_SYNC);
+    int memfd = open("/dev/mem", O_RDWR | O_SYNC);
     if (memfd < 0)
     {
         return false;
     }
 
     // Map GPIO memory
-    gpio_map = get_map(GPIO_BASE, PAGE_SIZE);
-    if (!gpio_map)
+    gpio_base = get_map(memfd, GPIO_BASE, PAGE_SIZE);
+    if (gpio_base == NULL)
     {
         close(memfd);
         return false;
     }
 
     // Map PWM memory
-    uint32_t *pwm0_base = get_map(PWM_BASE, PAGE_SIZE);
-    if (!pwm0_base)
+    uint32_t *pwm0_base = get_map(memfd, PWM_BASE, PAGE_SIZE);
+    if (pwm0_base == NULL)
     {
         close(memfd);
         return false;
     }
-    pwm_map[0] = pwm0_base + PWM0_OFFSET / 4;
-    pwm_map[1] = pwm0_base + PWM1_OFFSET / 4;
+    pwm_base = pwm0_base + PWM0_OFFSET / 4;
 
     // Map clock manager memory
-    cm_map = get_map(CM_BASE, PAGE_SIZE);
-    if (!cm_map)
+    cm_base = get_map(memfd, CM_BASE, PAGE_SIZE);
+    if (cm_base == NULL)
     {
         close(memfd);
         return false;
     }
+
+    close(memfd);
 
     return true;
 }
@@ -182,7 +195,8 @@ void dev_gpio_set_mode(uint32_t pin, uint32_t mode)
     uint32_t index = pin / 10;
     uint32_t shift = (pin % 10) * 3;
     uint32_t mask = 0b111 << shift;
-    gpio_map[index] = (gpio_map[index] & ~mask) | ((mode << shift) & mask);
+    uint32_t *reg = gpio_base + GPIO_FSEL_OFFSET / 4 + index;
+    *reg = (*reg & ~mask) | ((mode << shift) & mask);
 }
 
 void dev_gpio_set_pull(uint32_t pin, uint32_t pull)
@@ -190,13 +204,23 @@ void dev_gpio_set_pull(uint32_t pin, uint32_t pull)
     // Each GPIO pin has 2 bits for pull
     uint32_t shift = pin % 16;
     uint32_t mask = 0b11 << shift;
-    gpio_map[37] = (gpio_map[37] & ~mask) | ((pull << shift) & mask);
+
+    uint32_t *reg_pud = gpio_base + GPIO_PUD_OFFSET / 4;
+    uint32_t *reg_pudclk = gpio_base + GPIO_PUDCLK_OFFSET / 4 + pin / 32;
+
+    // Refer to the BCM2835 datasheet, page 101
+    *reg_pud = pull;               // Set pull up/down
+    usleep(1);                     // Wait for 150 cycles
+    *reg_pudclk = 1 << (pin % 32); // Assert clock
+    usleep(1);                     // Wait for 150 cycles
+    *reg_pud = 0;                  // Remove pull up/down
+    *reg_pudclk = 0;               // Remove clock
 }
 
 void dev_gpio_set_mask(uint64_t mask)
 {
-    gpio_map[7] = mask & 0xFFFFFFFF;
-    gpio_map[8] = (mask >> 32) & 0xFFFFFFFF;
+    gpio_base[7] = mask & 0xFFFFFFFF;
+    gpio_base[8] = (mask >> 32) & 0xFFFFFFFF;
 }
 
 void dev_gpio_set_pin(uint32_t pin)
@@ -204,13 +228,13 @@ void dev_gpio_set_pin(uint32_t pin)
     uint32_t index = pin / 32;
     uint32_t shift = pin % 32;
     uint32_t mask = 1 << shift;
-    gpio_map[7 + index] = mask;
+    gpio_base[7 + index] = mask;
 }
 
 void dev_gpio_clear_mask(uint64_t mask)
 {
-    gpio_map[10] = mask & 0xFFFFFFFF;
-    gpio_map[11] = (mask >> 32) & 0xFFFFFFFF;
+    gpio_base[10] = mask & 0xFFFFFFFF;
+    gpio_base[11] = (mask >> 32) & 0xFFFFFFFF;
 }
 
 void dev_gpio_clear_pin(uint32_t pin)
@@ -218,7 +242,7 @@ void dev_gpio_clear_pin(uint32_t pin)
     uint32_t index = pin / 32;
     uint32_t shift = pin % 32;
     uint32_t mask = 1 << shift;
-    gpio_map[10 + index] = mask;
+    gpio_base[10 + index] = mask;
 }
 
 bool dev_gpio_get_pin(uint32_t pin)
@@ -226,82 +250,80 @@ bool dev_gpio_get_pin(uint32_t pin)
     uint32_t index = pin / 32;
     uint32_t shift = pin % 32;
     uint32_t mask = 1 << shift;
-    uint32_t value = (gpio_map[13 + index] & mask) >> shift;
+    uint32_t value = (gpio_base[13 + index] & mask) >> shift;
     return value;
 }
 
 // PWM
 
-void dev_pwm_enable(uint32_t index, uint32_t channel)
+void dev_pwm_enable(uint32_t channel, bool enable)
 {
-#define WAIT(cond) \
-    while (cond)   \
-        ;
-#define SET(reg, bit, value) ((reg) = ((reg) & ~(1 << ((channel) * 8 + (bit)))) | (value << ((channel) * 8 + (bit))))
 #define PASSWORD 0x5A000000
 
-    uint32_t *ctl = pwm_map[index] + 0;
-    uint32_t *cm_ctl = cm_map + CM_PWMCTL_OFFSET / 4;
-    uint32_t *cm_div = cm_map + CM_PWMDIV_OFFSET / 4;
+    uint32_t *ctl = pwm_base;
+    uint32_t *dat = pwm_base + 5 + channel * 4;
 
-    // Disable PWM
-    *ctl = 0;
+    if (!enable)
+    {
+        // Disable PWM channel
+        *ctl &= ~(1 << (channel * 8));
 
-    // Configure clock manager
-    *cm_ctl = PASSWORD | (*cm_ctl & ~(1 << 4));   // Turn off enable flag
-    WAIT(*cm_ctl & (1 << 7));                     // Wait for clock to be turned off
-    *cm_div = PASSWORD | *cm_div | (0x19 << 12);  // Configure divider (/25)
-    *cm_ctl = PASSWORD | *cm_ctl & ~(0b111 << 9); // Set MASH to 0
-    *cm_ctl = PASSWORD | *cm_ctl | 6;             // Set clock source to PLLD per (500MHz)
-    *cm_ctl = PASSWORD | *cm_ctl | (1 << 4);      // Turn on enable flag
-    WAIT(!(*cm_ctl & (1 << 7)));                  // Wait for clock to be turned on
-    // Therefore it would configure the PWM clock to 500MHz / 25 = 20MHz
+        // Set data to 0
+        *dat = 0;
+        return;
+    }
 
-    uint32_t reg = *ctl;
-    SET(reg, 0, 1); // Enable PWM channel
-    SET(reg, 1, 0); // Set to PWM mode
-    SET(reg, 2, 0); // Do not repeat
-    SET(reg, 3, 0); // Set state to LOW when there is no data
-    SET(reg, 4, 0); // Do not invert the polarity
-    SET(reg, 5, 0); // Disable FIFO
-    SET(reg, 6, 1); // Clear FIFO
-    SET(reg, 7, 1); // Use M/S mode
-    *ctl = reg;
+    // Configure PWM clock
+    {
+        uint32_t *cm_ctl = cm_base + CM_PWMCTL_OFFSET / 4;
+        uint32_t *cm_div = cm_base + CM_PWMDIV_OFFSET / 4;
 
-#undef WAIT
-#undef SET
+        *cm_ctl = PASSWORD | (*cm_ctl & ~(1 << 4));  // Turn off enable flag
+        WAIT(*cm_ctl & (1 << 7));                    // Wait for clock to be turned off
+        *cm_div = PASSWORD | *cm_div | (0x19 << 12); // Configure divider (/25)
+        *cm_ctl = PASSWORD | *cm_ctl & ~(0b11 << 9); // Set MASH to 0
+        *cm_ctl = PASSWORD | *cm_ctl | 6;            // Set clock source to PLLD per (500MHz)
+        *cm_ctl = PASSWORD | *cm_ctl | (1 << 4);     // Turn on enable flag
+        WAIT(!(*cm_ctl & (1 << 7)));                 // Wait for clock to be turned on
+
+        // Therefore it would configure the PWM clock to 500MHz / 25 = 20MHz
+    }
+
+    // Configure PWM channel
+    {
+        uint32_t reg = *ctl;
+        SET(reg, 0 + channel * 8, 1); // Enable PWM channel
+        SET(reg, 1 + channel * 8, 0); // Set to PWM mode
+        SET(reg, 2 + channel * 8, 0); // Do not repeat
+        SET(reg, 3 + channel * 8, 0); // Set state to LOW when there is no data
+        SET(reg, 4 + channel * 8, 0); // Do not invert the polarity
+        SET(reg, 5 + channel * 8, 0); // Disable FIFO
+        SET(reg, 6, 1);               // Clear FIFO
+        SET(reg, 7 + channel * 8, 1); // Use M/S mode
+        *ctl = reg;
+    }
+
 #undef PASSWORD
 }
 
-void dev_pwm_disable(uint32_t index, uint32_t channel)
+void dev_pwm_set_range(uint32_t channel, uint32_t range)
 {
-    // Disable PWM channel
-    uint32_t *ctl = pwm_map[index] + 0;
-    *ctl &= ~(1 << (channel * 8));
-
-    // Set data to 0
-    uint32_t *dat = pwm_map[index] + 5 + channel * 4;
-    *dat = 0;
+    uint32_t *reg = pwm_base + 4 + channel * 4;
+    *reg = range;
 }
 
-void dev_pwm_set_range(uint32_t index, uint32_t channel, uint32_t range)
+void dev_pwm_set_data(uint32_t channel, uint32_t data)
 {
-    uint32_t *rng = pwm_map[index] + 4 + channel * 4;
-    *rng = range;
-}
-
-void dev_pwm_set_data(uint32_t index, uint32_t channel, uint32_t data)
-{
-    uint32_t *dat = pwm_map[index] + 5 + channel * 4;
-    *dat = data;
+    uint32_t *reg = pwm_base + 5 + channel * 4;
+    *reg = data;
 }
 
 // GPCLK
 
 void dev_gpclk_enable(uint32_t index, bool enable)
 {
-    uint32_t *cm_ctl = cm_map + 0x70 / 4 + index * 0x08 / 4;
-    uint32_t *cm_div = cm_map + 0x74 / 4 + index * 0x08 / 4;
+    uint32_t *cm_ctl = cm_base + 0x70 / 4 + index * 0x08 / 4;
+    uint32_t *cm_div = cm_base + 0x74 / 4 + index * 0x08 / 4;
 
     if (!enable)
     {
@@ -323,8 +345,8 @@ void dev_gpclk_enable(uint32_t index, bool enable)
 
 void dev_gpclk_set_divisor(uint32_t index, uint32_t integer, uint32_t fraction)
 {
-    uint32_t *cm_ctl = cm_map + 0x70 / 4 + index * 0x08 / 4;
-    uint32_t *cm_div = cm_map + 0x74 / 4 + index * 0x08 / 4;
+    uint32_t *cm_ctl = cm_base + 0x70 / 4 + index * 0x08 / 4;
+    uint32_t *cm_div = cm_base + 0x74 / 4 + index * 0x08 / 4;
 
     *cm_ctl = 0x5A000000 | *cm_ctl & ~(1 << 4); // Disable
     while (*cm_ctl & (1 << 7))

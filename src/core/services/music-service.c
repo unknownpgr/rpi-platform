@@ -37,8 +37,8 @@ void music_play(char *music_file_path)
      */
 
     motor_enable(true);
-    float volume_gain = 1.5f;
-    float irr_gain = 0.95f;
+    float volume_gain = 0.98f;
+    float irr_gain = 0.5f;
     float epsilon = 0.001;
 
     float filtered = 0;

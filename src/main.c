@@ -21,13 +21,21 @@ void handle_exit()
     motor_enable(false);
 
     // Disable PWM
-    dev_pwm_disable(0, 0);
-    dev_pwm_disable(0, 1);
-    dev_pwm_disable(1, 0);
-    dev_pwm_disable(1, 1);
+    dev_pwm_enable(0, false);
+    dev_pwm_enable(1, false);
+
+    // Disable GPCLK
+    dev_gpclk_enable(0, false);
+    dev_gpclk_enable(1, false);
 
     // Clear all GPIO
     dev_gpio_clear_mask(0xFFFFFFFFFFFFFFFF);
+
+    // Set GPIO mode to input
+    for (uint32_t i = 0; i < 28; i++)
+    {
+        dev_gpio_set_mode(i, GPIO_FSEL_IN);
+    }
 
     // Exit program
     exit(0);
@@ -103,8 +111,8 @@ int main()
     // Initialization
     init();
 
-    // music_play("../assets/drip.raw");
-    radio_play("../assets/drip.raw");
+    music_play("../assets/love_is_lonely.raw");
+    // radio_play("../assets/love_is_lonely.raw");
 
     handle_exit();
 
