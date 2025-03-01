@@ -5,12 +5,6 @@ static uint32_t timer_s = 0;
 static uint32_t timer_ns = 0;
 static uint32_t timer_prev_ns = 0;
 
-bool timer_init()
-{
-    timer_update();
-    return true;
-}
-
 static inline void __timer_update()
 {
     // Get current time
@@ -26,6 +20,12 @@ static inline void __timer_update()
         timer_s++;
     }
     timer_prev_ns = timer_ns;
+}
+
+bool timer_init()
+{
+    __timer_update();
+    return true;
 }
 
 void timer_update()
