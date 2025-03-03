@@ -31,3 +31,8 @@ void print(const char *format, ...)
     printf("[%07.3f] %s\n", (s - start_time_s), buf);
     fflush(stdout);
 }
+
+void clear()
+{
+    printf("\033[H\033[J");
+}

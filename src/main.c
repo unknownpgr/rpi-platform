@@ -14,15 +14,12 @@
 #include <knob-service.h>
 #include <music-service.h>
 #include <radio-service.h>
+#include <sensor-service.h>
 
 void handle_exit()
 {
     // Disable motor
     motor_enable(false);
-
-    // Disable PWM
-    dev_pwm_enable(0, false);
-    dev_pwm_enable(1, false);
 
     // Disable GPCLK
     dev_gpclk_enable(0, false);
@@ -107,14 +104,12 @@ void init()
 int main()
 {
     print("Program started");
-
-    // Initialization
     init();
 
-    music_play("../assets/love_is_lonely.raw");
-    // radio_play("../assets/love_is_lonely.raw");
+    sensor_init();
+    sensor_calibrate();
+    sensor_print();
 
     handle_exit();
-
     return 0;
 }
