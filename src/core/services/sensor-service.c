@@ -174,7 +174,7 @@ void sensor_calibrate()
     // Read black max
     uint32_t start_time = timer_get_s();
     uint16_t sensor_data[NUM_SENSORS];
-    while ((timer_get_s() - start_time) < 2)
+    while ((timer_get_s() - start_time) < 4)
     {
         clear();
         print("Collecting black max data...");
@@ -190,7 +190,7 @@ void sensor_calibrate()
 
     // Read white max
     start_time = timer_get_s();
-    while ((timer_get_s() - start_time) < 2)
+    while ((timer_get_s() - start_time) < 4)
     {
         clear();
         print("Collecting white max data...");
@@ -205,7 +205,109 @@ void sensor_calibrate()
     }
 }
 
-void sensor_print()
+void sensor_print_bar(float bar_value)
+{
+    if (bar_value < 0)
+    {
+        bar_value = 0;
+    }
+    else if (bar_value > 1)
+    {
+        bar_value = 1;
+    }
+
+    uint32_t bar_length = (uint32_t)(bar_value * 60);
+
+    char bar[61] = {0};
+    for (uint8_t i = 0; i < 60; i++)
+    {
+        if (i < bar_length)
+        {
+            bar[i] = '#';
+        }
+        else
+        {
+            bar[i] = '_';
+        }
+    }
+    printf("%s", bar);
+}
+
+void sensor_test_led()
+{
+    dev_gpio_set_pin(IR_SEN);
+
+    // Slowly turn on sensors
+    while (true)
+    {
+        for (uint8_t sensor_index = 0; sensor_index < NUM_SENSORS; sensor_index++)
+        {
+            uint8_t s0 = sensor_index & 0b0001;
+            uint8_t s1 = sensor_index & 0b0010;
+            uint8_t s2 = sensor_index & 0b0100;
+            uint8_t s3 = sensor_index & 0b1000;
+
+            // Select multiplexer channel
+            if (s0)
+            {
+                dev_gpio_set_pin(IR_S00);
+            }
+            else
+            {
+                dev_gpio_clear_pin(IR_S00);
+            }
+
+            if (s1)
+            {
+                dev_gpio_set_pin(IR_S01);
+            }
+            else
+            {
+                dev_gpio_clear_pin(IR_S01);
+            }
+
+            if (s2)
+            {
+                dev_gpio_set_pin(IR_S02);
+            }
+            else
+            {
+                dev_gpio_clear_pin(IR_S02);
+            }
+
+            if (s3)
+            {
+                dev_gpio_set_pin(IR_S03);
+            }
+            else
+            {
+                dev_gpio_clear_pin(IR_S03);
+            }
+
+            timer_sleep_ns(1e8);
+
+            print("Sensor %d", sensor_index);
+        }
+    }
+}
+
+void sensor_test_raw()
+{
+    uint16_t sensor_data[NUM_SENSORS];
+    while (true)
+    {
+        sensor_read(sensor_data);
+        for (uint8_t i = 0; i < NUM_SENSORS; i++)
+        {
+            printf("[%02d] %4d", i, sensor_data[i]);
+            sensor_print_bar((float)sensor_data[i] / 4095);
+            printf("\n");
+        }
+        timer_sleep_ns(1e8);
+    }
+}
+
+void sensor_test_calibration()
 {
     uint16_t sensor_data[NUM_SENSORS];
     uint32_t loop_counter = 0;
@@ -227,7 +329,6 @@ void sensor_print()
 
             // Print sensor data
             printf("     RAW  CALI\n");
-            uint8_t bar[61] = {0};
             for (uint8_t i = 0; i < 16; i++)
             {
                 // Calculate calibrated value
@@ -244,20 +345,9 @@ void sensor_print()
                 }
 
                 // Print bar graph
-                uint32_t bar_value = (uint32_t)(calibrated_value * 60);
                 printf("[%02d] %4d %4.3f |", i, sensor_data[i], calibrated_value);
-                for (uint8_t j = 0; j < 60; j++)
-                {
-                    if (j < bar_value)
-                    {
-                        bar[j] = '#';
-                    }
-                    else
-                    {
-                        bar[j] = '_';
-                    }
-                }
-                printf("%s\n", bar);
+                sensor_print_bar(calibrated_value);
+                printf("\n");
             }
             printf("\n");
 

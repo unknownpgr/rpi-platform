@@ -106,9 +106,11 @@ int main()
     print("Program started");
     init();
 
-    sensor_init();
-    sensor_calibrate();
-    sensor_print();
+    // music_play("../assets/love_is_lonely.raw");
+
+    // sensor_init();
+    // sensor_calibrate();
+    // sensor_test_calibration();
 
     handle_exit();
     return 0;
