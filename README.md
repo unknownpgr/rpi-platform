@@ -1,4 +1,4 @@
-# RPi Dev Env
+# RPi Platform
 
 #### Requirements
 
