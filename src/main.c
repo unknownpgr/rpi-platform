@@ -15,6 +15,7 @@
 #include <music-service.h>
 #include <radio-service.h>
 #include <sensor-service.h>
+#include <keyboard-service.h>
 
 void handle_exit()
 {
@@ -54,6 +55,10 @@ void init()
     sigaction(SIGSEGV, &action, NULL);
     sigaction(SIGPIPE, &action, NULL);
     sigaction(SIGTERM, &action, NULL);
+
+    // Initialize keyboard
+    keyboard_init();
+    print("Keyboard initialized");
 
     // Initialize peripherals
     if (!dev_init())
@@ -106,7 +111,7 @@ int main()
     print("Program started");
     init();
 
-    // music_play("../assets/love_is_lonely.raw");
+    music_play("../assets/love_is_lonely.raw");
 
     // sensor_init();
     // sensor_calibrate();
