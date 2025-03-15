@@ -47,20 +47,47 @@ void motor_enable(bool enable)
 
 void motor_set_velocity(float vL, float vR)
 {
+    // Clip velocity
+    if (vL > 1)
+    {
+        vL = 1;
+    }
+    else if (vL < -1)
+    {
+        vL = -1;
+    }
+
+    if (vR > 1)
+    {
+        vR = 1;
+    }
+    else if (vR < -1)
+    {
+        vR = -1;
+    }
+
     if (vR > 0)
     {
         dev_gpio_set_pin(GPIO_PIN_R_DIR);
-        dev_gpio_clear_pin(GPIO_PIN_L_DIR);
         uint32_t data = (uint32_t)((1 - vR) * MOTOR_PWM_RANGE);
-        dev_pwm_set_data(0, data);
         dev_pwm_set_data(1, data);
     }
     else
     {
         dev_gpio_clear_pin(GPIO_PIN_R_DIR);
-        dev_gpio_set_pin(GPIO_PIN_L_DIR);
         uint32_t data = (uint32_t)(vR * -MOTOR_PWM_RANGE);
-        dev_pwm_set_data(0, data);
         dev_pwm_set_data(1, data);
+    }
+    if (vL > 0)
+    {
+        dev_gpio_set_pin(GPIO_PIN_L_DIR);
+        uint32_t data = (uint32_t)((1 - vL) * MOTOR_PWM_RANGE);
+        dev_pwm_set_data(0, data);
+    }
+    else
+    {
+        dev_gpio_clear_pin(GPIO_PIN_L_DIR);
+        uint32_t data = (uint32_t)(vL * -MOTOR_PWM_RANGE);
+        dev_pwm_set_data(0, data);
     }
 }
