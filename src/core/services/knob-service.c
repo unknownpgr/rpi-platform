@@ -42,6 +42,43 @@ double clip(double value, double abs_max)
 
 void knob_test()
 {
+    {
+        motor_enable(true);
+
+        const uint32_t dt_ns = 1000000; // 1ms
+        interval_t interval = create_interval(dt_ns);
+        uint32_t target_position = 0;
+
+        while (true)
+        {
+            encoder_update();
+            ON(interval, {
+                uint32_t position;
+                encoder_get_counts(&position, &position);
+
+                int32_t diff = target_position - position;
+
+                if (diff > 500)
+                {
+                    target_position -= 1000;
+                }
+                else if (diff < -500)
+                {
+                    target_position += 1000;
+                }
+
+                double output = diff * 0.05;
+
+                output = clip(output, 0.2);
+                motor_set_velocity(0, output);
+            })
+        }
+
+        return;
+    }
+
+    //================================================================================================
+
     // Constants
     const uint32_t dt_ns = 100000;
 
