@@ -1,10 +1,14 @@
+#include <dev.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <dev.h>
+#include <linux/spi/spidev.h>
+#include <sys/ioctl.h>
+
 #include <log.h>
 
 #define PAGE_SIZE 4096
@@ -30,6 +34,18 @@
 #define GPCLK_OFFSET 0x70
 #define CM_PWMCTL_OFFSET 0xA0
 #define CM_PWMDIV_OFFSET 0xA4
+
+// SPI pins
+#define SPI_CE1 8
+#define SPI_MISO 9
+#define SPI_SCLK 11
+#define SPI_MOSI 10
+
+#define SPI_DEVICE "/dev/spidev0.0" // SPI device
+#define SPI_MODE SPI_MODE_0         // SPI mode
+#define SPI_BITS 8                  // Bits per word
+#define SPI_SPEED 3200000           // Speed in Hz (3.2MHz)
+#define SPI_DELAY 0                 // No delay
 
 // Utility macros
 #define WAIT(cond) \
@@ -121,6 +137,9 @@ static uint32_t *gpio_base;
 static uint32_t *pwm_base;
 static uint32_t *cm_base;
 
+int spi_fd;
+struct spi_ioc_transfer spi_transfer;
+
 static void print_binary(uint32_t data)
 {
     char binary[100];
@@ -183,6 +202,47 @@ bool dev_init()
     }
 
     close(memfd);
+
+    // Initialize SPI
+    {
+        spi_fd = open("/dev/spidev0.0", O_RDWR);
+        if (spi_fd < 0)
+        {
+            perror("Failed to open SPI device");
+            return false;
+        }
+
+        uint8_t mode = SPI_MODE;
+        if (ioctl(spi_fd, SPI_IOC_WR_MODE, &mode) < 0)
+        {
+            perror("Failed to set SPI mode");
+            close(spi_fd);
+            return false;
+        }
+
+        uint8_t bits = SPI_BITS;
+        if (ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &bits) < 0)
+        {
+            perror("Failed to set SPI bits per word");
+            close(spi_fd);
+            return false;
+        }
+
+        uint32_t speed = SPI_SPEED;
+        if (ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed) < 0)
+        {
+            perror("Failed to set SPI speed");
+            close(spi_fd);
+            return false;
+        }
+
+        spi_transfer.tx_buf = 0;
+        spi_transfer.rx_buf = 0;
+        spi_transfer.len = 2;
+        spi_transfer.speed_hz = SPI_SPEED;
+        spi_transfer.delay_usecs = SPI_DELAY;
+        spi_transfer.bits_per_word = SPI_BITS;
+    }
 
     return true;
 }
@@ -355,4 +415,37 @@ void dev_gpclk_set_divisor(uint32_t index, uint32_t integer, uint32_t fraction)
     *cm_ctl = 0x5A000000 | *cm_ctl | (1 << 4); // Enable
     while (!(*cm_ctl & (1 << 7)))
         ;
+}
+
+// SPI
+
+void dev_spi_enable(bool enable)
+{
+    if (enable)
+    {
+        dev_gpio_set_mode(SPI_CE1, GPIO_FSEL_OUT);
+        dev_gpio_set_mode(SPI_MISO, GPIO_FSEL_ALT0);
+        dev_gpio_set_mode(SPI_MOSI, GPIO_FSEL_ALT0);
+        dev_gpio_set_mode(SPI_SCLK, GPIO_FSEL_ALT0);
+    }
+    else
+    {
+        dev_gpio_set_mode(SPI_CE1, GPIO_FSEL_IN);
+        dev_gpio_set_mode(SPI_MISO, GPIO_FSEL_IN);
+        dev_gpio_set_mode(SPI_MOSI, GPIO_FSEL_IN);
+        dev_gpio_set_mode(SPI_SCLK, GPIO_FSEL_IN);
+    }
+}
+
+void dev_spi_transfer(uint8_t *tx, uint8_t *rx, uint32_t len)
+{
+    spi_transfer.tx_buf = (unsigned long)tx;
+    spi_transfer.rx_buf = (unsigned long)rx;
+    spi_transfer.len = len;
+    if (ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi_transfer) < 0)
+    {
+        perror("SPI transfer failed");
+        close(spi_fd);
+        return;
+    }
 }

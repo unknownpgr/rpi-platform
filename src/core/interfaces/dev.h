@@ -32,3 +32,6 @@ void dev_pwm_set_data(uint32_t channel, uint32_t data);
 
 void dev_gpclk_enable(uint32_t index, bool enable);
 void dev_gpclk_set_divisor(uint32_t index, uint32_t integer, uint32_t fraction);
+
+void dev_spi_enable(bool enable);
+void dev_spi_transfer(uint8_t *tx, uint8_t *rx, uint32_t len);
