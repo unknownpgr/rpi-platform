@@ -31,6 +31,51 @@ void sensor_init()
     dev_gpio_set_mode(IR_SEN, GPIO_FSEL_OUT);
 }
 
+void sensor_select(uint8_t sensor_index)
+{
+    uint8_t s0 = sensor_index & 0b0001;
+    uint8_t s1 = sensor_index & 0b0010;
+    uint8_t s2 = sensor_index & 0b0100;
+    uint8_t s3 = sensor_index & 0b1000;
+
+    // Select multiplexer channel
+    if (s0)
+    {
+        dev_gpio_set_pin(IR_S00);
+    }
+    else
+    {
+        dev_gpio_clear_pin(IR_S00);
+    }
+
+    if (s1)
+    {
+        dev_gpio_set_pin(IR_S01);
+    }
+    else
+    {
+        dev_gpio_clear_pin(IR_S01);
+    }
+
+    if (s2)
+    {
+        dev_gpio_set_pin(IR_S02);
+    }
+    else
+    {
+        dev_gpio_clear_pin(IR_S02);
+    }
+
+    if (s3)
+    {
+        dev_gpio_set_pin(IR_S03);
+    }
+    else
+    {
+        dev_gpio_clear_pin(IR_S03);
+    }
+}
+
 void sensor_read(uint16_t *sensor_data)
 {
     uint8_t tx[] = {0 << 3, 0 << 3}; // Example data to send
@@ -38,47 +83,8 @@ void sensor_read(uint16_t *sensor_data)
 
     for (uint8_t sensor_index = 0; sensor_index < NUM_SENSORS; sensor_index++)
     {
-        uint8_t s0 = sensor_index & 0b0001;
-        uint8_t s1 = sensor_index & 0b0010;
-        uint8_t s2 = sensor_index & 0b0100;
-        uint8_t s3 = sensor_index & 0b1000;
-
-        // Select multiplexer channel
-        if (s0)
-        {
-            dev_gpio_set_pin(IR_S00);
-        }
-        else
-        {
-            dev_gpio_clear_pin(IR_S00);
-        }
-
-        if (s1)
-        {
-            dev_gpio_set_pin(IR_S01);
-        }
-        else
-        {
-            dev_gpio_clear_pin(IR_S01);
-        }
-
-        if (s2)
-        {
-            dev_gpio_set_pin(IR_S02);
-        }
-        else
-        {
-            dev_gpio_clear_pin(IR_S02);
-        }
-
-        if (s3)
-        {
-            dev_gpio_set_pin(IR_S03);
-        }
-        else
-        {
-            dev_gpio_clear_pin(IR_S03);
-        }
+        // Select sensor
+        sensor_select(sensor_index);
 
         // Turn on IR LED
         dev_gpio_set_pin(IR_SEN);
@@ -177,47 +183,7 @@ void sensor_test_led()
     {
         for (uint8_t sensor_index = 0; sensor_index < NUM_SENSORS; sensor_index++)
         {
-            uint8_t s0 = sensor_index & 0b0001;
-            uint8_t s1 = sensor_index & 0b0010;
-            uint8_t s2 = sensor_index & 0b0100;
-            uint8_t s3 = sensor_index & 0b1000;
-
-            // Select multiplexer channel
-            if (s0)
-            {
-                dev_gpio_set_pin(IR_S00);
-            }
-            else
-            {
-                dev_gpio_clear_pin(IR_S00);
-            }
-
-            if (s1)
-            {
-                dev_gpio_set_pin(IR_S01);
-            }
-            else
-            {
-                dev_gpio_clear_pin(IR_S01);
-            }
-
-            if (s2)
-            {
-                dev_gpio_set_pin(IR_S02);
-            }
-            else
-            {
-                dev_gpio_clear_pin(IR_S02);
-            }
-
-            if (s3)
-            {
-                dev_gpio_set_pin(IR_S03);
-            }
-            else
-            {
-                dev_gpio_clear_pin(IR_S03);
-            }
+            sensor_select(sensor_index);
 
             timer_sleep_ns(1e8);
 
