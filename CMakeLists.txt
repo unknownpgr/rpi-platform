@@ -16,6 +16,7 @@ add_executable(
     src/core/services/radio-service.c
     src/core/services/sensor-service.c
     src/core/services/keyboard-service.c
+    src/core/services/drive-service.c
 
     src/infra/dev.c
     src/infra/motor.c

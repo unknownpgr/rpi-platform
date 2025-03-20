@@ -16,6 +16,7 @@
 #include <radio-service.h>
 #include <sensor-service.h>
 #include <keyboard-service.h>
+#include <drive-service.h>
 
 void handle_exit()
 {
@@ -111,7 +112,9 @@ int main()
     print("Program started");
     init();
 
-    music_play("../assets/love_is_lonely.raw");
+    drive_test();
+
+    // music_play("../assets/love_is_lonely.raw");
 
     // sensor_init();
     // sensor_calibrate();
