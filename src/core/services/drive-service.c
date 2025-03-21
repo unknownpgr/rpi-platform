@@ -55,9 +55,11 @@ void drive_test()
 
     uint32_t position_l;
     uint32_t position_r;
-    uint32_t position_l_prev = 0;
-    uint32_t position_r_prev = 0;
-    encoder_get_counts(&position_l_prev, &position_r_prev);
+
+    double position_target_l = 0;
+    double position_target_r = 0;
+
+    float default_speed = 1;
 
     float vL = 0;
     float vR = 0;
@@ -69,32 +71,26 @@ void drive_test()
         ON(interval_keyboard, {
             char key = keyboard_get_key();
 
-            if (DIFF(timer_get_ns(), last_key_pressed) > 550000000)
-            {
-                vL = 0;
-                vR = 0;
-            }
-
             switch (key)
             {
             case KEY_W:
-                vL = 0.5;
-                vR = 0.5;
+                vL = -default_speed;
+                vR = default_speed;
                 last_key_pressed = timer_get_ns();
                 break;
             case KEY_S:
-                vL = -0.5;
-                vR = -0.5;
+                vL = default_speed;
+                vR = -default_speed;
                 last_key_pressed = timer_get_ns();
                 break;
             case KEY_A:
-                vL = -0.5;
-                vR = 0.5;
+                vL = default_speed;
+                vR = default_speed;
                 last_key_pressed = timer_get_ns();
                 break;
             case KEY_D:
-                vL = 0.5;
-                vR = -0.5;
+                vL = -default_speed;
+                vR = -default_speed;
                 last_key_pressed = timer_get_ns();
                 break;
             case KEY_SPACE:
@@ -103,6 +99,8 @@ void drive_test()
                 last_key_pressed = timer_get_ns();
                 break;
             default:
+                vL = 0;
+                vR = 0;
                 break;
             }
         })
@@ -114,23 +112,23 @@ void drive_test()
             encoder_get_counts(&position_l, &position_r);
 
             // Get difference in encoder position
-            int32_t diff_l = position_l - position_l_prev;
-            int32_t diff_r = position_r - position_r_prev;
-
-            // Update previous encoder position
-            position_l_prev = position_l;
-            position_r_prev = position_r;
+            double error_l = (int32_t)(((int32_t)position_target_l) - position_l);
+            double error_r = (int32_t)(((int32_t)position_target_r) - position_r);
 
             // Calculate motor output
-            float output_l = (vL - diff_l / 490.6f);
-            float output_r = (vR - diff_r / 490.6f);
+            double output_l = error_l * 0.001;
+            double output_r = error_r * 0.001;
 
             // Clip motor output
             output_l = clip(output_l, 0.5);
             output_r = clip(output_r, 0.5);
 
             // Set motor velocity
-            motor_set_velocity(-output_l, output_r);
+            motor_set_velocity(output_l, output_r);
+
+            // Update target position according to velocity
+            position_target_l += vL * 10;
+            position_target_r += vR * 10;
         })
     }
 
