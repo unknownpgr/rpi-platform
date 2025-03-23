@@ -15,7 +15,7 @@ typedef struct
     uint32_t last_time_ns;
 } interval_t;
 
-interval_t create_interval(uint32_t interval_ns)
+static interval_t create_interval(uint32_t interval_ns)
 {
     interval_t interval = {
         .interval_ns = interval_ns,
@@ -31,7 +31,7 @@ interval_t create_interval(uint32_t interval_ns)
         {code};                                                                     \
     }
 
-double clip(double value, double abs_max)
+static double clip(double value, double abs_max)
 {
     if (value > abs_max)
         return abs_max;

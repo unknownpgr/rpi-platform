@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <termios.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 void keyboard_init()
 {
@@ -13,6 +14,9 @@ void keyboard_init()
     termios_setting.c_cc[VMIN] = 1;              // Minimum number of characters to read
     termios_setting.c_cc[VTIME] = 0;             // Disable read timeout
     tcsetattr(STDIN_FILENO, TCSANOW, &termios_setting);
+
+    // Non-blocking input
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 }
 
 uint16_t keyboard_get_key()
@@ -22,6 +26,11 @@ uint16_t keyboard_get_key()
     while (1)
     {
         c = getchar();
+        if (c == 255)
+        {
+            return KEY_NONE;
+        }
+
         if (c == 27)
         {
             if (getchar() == '[')
@@ -30,18 +39,14 @@ uint16_t keyboard_get_key()
                 {
                 case 'A':
                     return KEY_UP;
-                    break;
                 case 'B':
                     return KEY_DOWN;
-                    break;
                 case 'C':
                     return KEY_RIGHT;
-                    break;
                 case 'D':
                     return KEY_LEFT;
-                    break;
                 default:
-                    break;
+                    return 0;
                 }
             }
         }

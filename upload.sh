@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
-
-# Configuration
-TARGET=rpi
-TARGET_PATH='~/app'
+. ./settings.sh
 
 function log() {
     echo 

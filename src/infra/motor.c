@@ -68,26 +68,27 @@ void motor_set_velocity(float vL, float vR)
 
     if (vR > 0)
     {
-        dev_gpio_set_pin(GPIO_PIN_R_DIR);
         uint32_t data = (uint32_t)((1 - vR) * MOTOR_PWM_RANGE);
+        dev_gpio_set_pin(GPIO_PIN_R_DIR);
         dev_pwm_set_data(1, data);
     }
     else
     {
-        dev_gpio_clear_pin(GPIO_PIN_R_DIR);
         uint32_t data = (uint32_t)(vR * -MOTOR_PWM_RANGE);
+        dev_gpio_clear_pin(GPIO_PIN_R_DIR);
         dev_pwm_set_data(1, data);
     }
+
     if (vL > 0)
     {
-        dev_gpio_set_pin(GPIO_PIN_L_DIR);
         uint32_t data = (uint32_t)((1 - vL) * MOTOR_PWM_RANGE);
+        dev_gpio_set_pin(GPIO_PIN_L_DIR);
         dev_pwm_set_data(0, data);
     }
     else
     {
-        dev_gpio_clear_pin(GPIO_PIN_L_DIR);
         uint32_t data = (uint32_t)(vL * -MOTOR_PWM_RANGE);
+        dev_gpio_clear_pin(GPIO_PIN_L_DIR);
         dev_pwm_set_data(0, data);
     }
 }
