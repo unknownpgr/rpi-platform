@@ -35,3 +35,7 @@ void dev_gpclk_set_divisor(uint32_t index, uint32_t integer, uint32_t fraction);
 
 void dev_spi_enable(bool enable);
 void dev_spi_transfer(uint8_t *tx, uint8_t *rx, uint32_t len);
+
+void dev_i2c_enable(bool enable);
+bool dev_i2c_read_register(uint8_t addr, uint8_t reg, uint8_t *data, uint32_t len);
+bool dev_i2c_write_register(uint8_t addr, uint8_t reg, uint8_t *data, uint32_t len);

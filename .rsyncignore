@@ -1,4 +1,6 @@
 .git
 .vscode
+.venv
+.tmp
 upload.sh
 README.md

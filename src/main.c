@@ -17,6 +17,8 @@
 #include <sensor-service.h>
 #include <keyboard-service.h>
 #include <drive-service.h>
+#include <vsense-service.h>
+#include <imu-service.h>
 
 void handle_exit()
 {
@@ -112,7 +114,27 @@ int main()
     print("Program started");
     init();
 
-    drive_test();
+    imu_init();
+    return;
+    // Turn gyro / accel on
+
+    printf("--------------------\n");
+
+    while (true)
+    {
+        imu_data_t data;
+        imu_geomagnetic_t geomagnetic;
+
+        imu_read(&data);
+        imu_read_geomagnetic(&geomagnetic);
+
+        // printf("ax: %d, ay: %d, az: %d, gx: %d, gy: %d, gz: %d\n", data.ax, data.ay, data.az, data.gx, data.gy, data.gz);
+        printf("%d, %d, %d, %d\n", geomagnetic.x, geomagnetic.y, geomagnetic.z, geomagnetic.r);
+
+        timer_sleep_ns(10000000);
+    }
+
+    // drive_test();
 
     // music_play("../assets/love_is_lonely.raw");
 
