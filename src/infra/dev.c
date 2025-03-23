@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <linux/spi/spidev.h>
+#include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
 
 #include <log.h>
@@ -140,6 +141,8 @@ static uint32_t *cm_base;
 int spi_fd;
 struct spi_ioc_transfer spi_transfer;
 
+int i2c_fd;
+
 static void print_binary(uint32_t data)
 {
     char binary[100];
@@ -242,6 +245,16 @@ bool dev_init()
         spi_transfer.speed_hz = SPI_SPEED;
         spi_transfer.delay_usecs = SPI_DELAY;
         spi_transfer.bits_per_word = SPI_BITS;
+    }
+
+    // Initialize I2C
+    {
+        i2c_fd = open("/dev/i2c-1", O_RDWR);
+        if (i2c_fd < 0)
+        {
+            perror("Failed to open I2C device");
+            return false;
+        }
     }
 
     return true;
@@ -448,4 +461,67 @@ void dev_spi_transfer(uint8_t *tx, uint8_t *rx, uint32_t len)
         close(spi_fd);
         return;
     }
+}
+
+// I2C
+
+void dev_i2c_enable(bool enable)
+{
+    if (enable)
+    {
+        dev_gpio_set_mode(2, GPIO_FSEL_ALT0);
+        dev_gpio_set_mode(3, GPIO_FSEL_ALT0);
+    }
+    else
+    {
+        dev_gpio_set_mode(2, GPIO_FSEL_IN);
+        dev_gpio_set_mode(3, GPIO_FSEL_IN);
+    }
+}
+
+bool dev_i2c_read_register(uint8_t addr, uint8_t reg, uint8_t *rx, uint32_t len)
+{
+    if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0)
+    {
+        perror("Failed to set I2C slave address");
+        return false;
+    }
+
+    if (write(i2c_fd, &reg, 1) != 1)
+    {
+        perror("Failed to write register address to I2C device");
+        return false;
+    }
+
+    if (read(i2c_fd, rx, len) != len)
+    {
+        perror("Failed to read from I2C device");
+        return false;
+    }
+
+    return true;
+}
+
+bool dev_i2c_write_register(uint8_t addr, uint8_t reg, uint8_t *tx, uint32_t len)
+{
+    if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0)
+    {
+        perror("Failed to set I2C slave address");
+        return false;
+    }
+
+    uint8_t buffer[len + 1];
+    buffer[0] = reg;
+    for (int i = 0; i < len; i++)
+    {
+        buffer[i + 1] = tx[i];
+    }
+
+    if (write(i2c_fd, buffer, len + 1) != len + 1)
+    {
+        perror("Failed to write register address and data to I2C device");
+        return false;
+    }
+
+    return true;
 }
