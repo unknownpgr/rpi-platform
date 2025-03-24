@@ -48,22 +48,22 @@ void motor_enable(bool enable)
 void motor_set_velocity(float vL, float vR)
 {
     // Clip velocity
-    if (vL > 1)
+    if (vL > 0.95f)
     {
-        vL = 1;
+        vL = 0.95f;
     }
-    else if (vL < -1)
+    else if (vL < -0.95f)
     {
-        vL = -1;
+        vL = -0.95f;
     }
 
-    if (vR > 1)
+    if (vR > 0.95f)
     {
-        vR = 1;
+        vR = 0.95f;
     }
-    else if (vR < -1)
+    else if (vR < -0.95f)
     {
-        vR = -1;
+        vR = -0.95f;
     }
 
     if (vR > 0)
