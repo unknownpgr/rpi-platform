@@ -8,6 +8,7 @@ include_directories(src/core/interfaces)
 add_executable(
     app
     
+    src/entry.c
     src/main.c
     
     src/core/services/log.c
