@@ -36,9 +36,11 @@ int application_start()
     motor_init();
     motor_enable(true);
 
+    timer_sleep_ns(100000000); // 100ms
+
     const double Kp = 2.0;
     const double Ki = 15.0;
-    const double Kd = 0.02;
+    const double Kd = 0.04;
 
     imu_data_t data;
     double angle = 0;
