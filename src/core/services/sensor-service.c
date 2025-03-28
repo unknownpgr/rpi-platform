@@ -103,6 +103,37 @@ void sensor_read(uint16_t *sensor_data)
     }
 }
 
+void sensor_read_one(uint16_t *sensor_data)
+{
+    static uint8_t sensor_index = 0;
+    uint8_t tx[] = {0 << 3, 0 << 3}; // Example data to send
+    uint8_t rx[sizeof(tx)] = {0};    // Receive buffer
+
+    // Select sensor
+    sensor_select(sensor_index);
+
+    // Turn on IR LED
+    dev_gpio_set_pin(IR_SEN);
+
+    // Read sensor data
+    dev_spi_transfer(tx, rx, sizeof(tx));
+
+    // Turn off IR LED
+    dev_gpio_clear_pin(IR_SEN);
+
+    // Parse sensor data
+    uint16_t data = ((((uint16_t)rx[0]) & 0b1111) << 8) | rx[1];
+
+    // Store sensor data
+    sensor_data[sensor_index] = data;
+
+    sensor_index++;
+    if (sensor_index >= NUM_SENSORS)
+    {
+        sensor_index = 0;
+    }
+}
+
 void sensor_calibrate()
 {
     // Initialize black / white max array
