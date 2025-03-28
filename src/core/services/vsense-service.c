@@ -11,6 +11,9 @@ float vsense_read()
 {
     uint8_t address[2] = {1 << 3, 1 << 3};
     uint8_t data[2];
+    // Select ADC channel
+    dev_spi_transfer(address, data, sizeof(data));
+    // Read ADC value
     dev_spi_transfer(address, data, sizeof(data));
     uint16_t adc = (((uint16_t)(data[0])) & 0b1111) << 8 | data[1];
     return adc * 0.01926f;
