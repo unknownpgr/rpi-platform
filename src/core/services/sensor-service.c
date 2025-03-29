@@ -103,7 +103,7 @@ void sensor_read(uint16_t *sensor_data)
     }
 }
 
-void sensor_read_one(uint16_t *sensor_data)
+void sensor_read_one(double *sensor_data)
 {
     static uint8_t sensor_index = 0;
     uint8_t tx[] = {0 << 3, 0 << 3}; // Example data to send
@@ -115,6 +115,9 @@ void sensor_read_one(uint16_t *sensor_data)
     // Turn on IR LED
     dev_gpio_set_pin(IR_SEN);
 
+    // Select ADC channel
+    dev_spi_transfer(tx, rx, sizeof(tx));
+
     // Read sensor data
     dev_spi_transfer(tx, rx, sizeof(tx));
 
@@ -124,9 +127,18 @@ void sensor_read_one(uint16_t *sensor_data)
     // Parse sensor data
     uint16_t data = ((((uint16_t)rx[0]) & 0b1111) << 8) | rx[1];
 
-    // Store sensor data
-    sensor_data[sensor_index] = data;
+    // Normalize sensor data
+    sensor_data[sensor_index] = (double)(data - black_max[sensor_index]) / (white_max[sensor_index] - black_max[sensor_index]);
+    if (sensor_data[sensor_index] < 0)
+    {
+        sensor_data[sensor_index] = 0;
+    }
+    else if (sensor_data[sensor_index] > 1)
+    {
+        sensor_data[sensor_index] = 1;
+    }
 
+    // Increment sensor index
     sensor_index++;
     if (sensor_index >= NUM_SENSORS)
     {

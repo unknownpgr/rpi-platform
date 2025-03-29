@@ -4,7 +4,7 @@
 
 void sensor_init();
 void sensor_read(uint16_t *sensor_data);
-void sensor_read_one(uint16_t *sensor_data);
+void sensor_read_one(double *sensor_data);
 void sensor_calibrate();
 
 void sensor_test_led();
