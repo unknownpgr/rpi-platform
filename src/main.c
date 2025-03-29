@@ -106,6 +106,9 @@ void thread_drive(void *_)
     sensor_calibrate();
     print("Calibration done");
 
+    float default_speed = 2.5;
+    float default_curvature = 1.5;
+
     pid_control_t pid_left, pid_right;
     pid_init(&pid_left);
     pid_init(&pid_right);
@@ -153,9 +156,6 @@ void thread_drive(void *_)
             position = weighted_value_sum / weight_sum;
         }
 
-        pid_left.target = -1 * (0.7 + position * 1.0);
-        pid_right.target = 1 * (0.7 - position * 1.0);
-
         // VSense loop
         if (loop_update(&loop_vsense, &dt_ns))
         {
@@ -168,6 +168,10 @@ void thread_drive(void *_)
         {
             // Get dt (loop may not run at constant rate)
             double dt = dt_ns / 1e9;
+
+            // Update PID targets based on position
+            pid_left.target = -default_speed * (1.0 + position * default_curvature);
+            pid_right.target = default_speed * (1.0 - position * default_curvature);
 
             // Calculate speed
             encoder_get_counts(&left, &right);
