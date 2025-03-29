@@ -7,6 +7,8 @@
 #include <log.h>
 #include <timer.h>
 
+#include <keyboard-service.h>
+
 #define NUM_SENSORS 16
 
 #define IR_S03 23
@@ -29,6 +31,8 @@ void sensor_init()
     dev_gpio_set_mode(IR_S01, GPIO_FSEL_OUT);
     dev_gpio_set_mode(IR_S00, GPIO_FSEL_OUT);
     dev_gpio_set_mode(IR_SEN, GPIO_FSEL_OUT);
+
+    keyboard_init();
 }
 
 void sensor_select(uint8_t sensor_index)
@@ -156,12 +160,12 @@ void sensor_calibrate()
     }
 
     // Read black max
+    print("Collecting black max data...");
     uint32_t start_time = timer_get_s();
     uint16_t sensor_data[NUM_SENSORS];
-    while ((timer_get_s() - start_time) < 4)
+    while (true)
     {
-        clear();
-        print("Collecting black max data...");
+        // Read sensor data
         sensor_read(sensor_data);
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {
@@ -170,14 +174,32 @@ void sensor_calibrate()
                 black_max[i] = sensor_data[i];
             }
         }
+
+        // Print black max data
+        char buf[100];
+        char *p = buf;
+        p += sprintf(p, "Black max: ");
+        for (uint8_t i = 0; i < NUM_SENSORS; i++)
+        {
+            p += sprintf(p, "%04d ", black_max[i]);
+        }
+        printf("\r%s", buf);
+        fflush(stdout);
+
+        // Check for keyboard input
+        if (keyboard_get_key() != KEY_NONE)
+        {
+            break;
+        }
     }
+    printf("\n");
 
     // Read white max
     start_time = timer_get_s();
-    while ((timer_get_s() - start_time) < 4)
+    print("Collecting white max data...");
+    while (true)
     {
-        clear();
-        print("Collecting white max data...");
+        // Read sensor data
         sensor_read(sensor_data);
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {
@@ -186,7 +208,25 @@ void sensor_calibrate()
                 white_max[i] = sensor_data[i];
             }
         }
+
+        // Print white max data
+        char buf[100];
+        char *p = buf;
+        p += sprintf(p, "White max: ");
+        for (uint8_t i = 0; i < NUM_SENSORS; i++)
+        {
+            p += sprintf(p, "%04d ", white_max[i]);
+        }
+        printf("\r%s", buf);
+        fflush(stdout);
+
+        // Check for keyboard input
+        if (keyboard_get_key() != KEY_NONE)
+        {
+            break;
+        }
     }
+    printf("\n");
 }
 
 void sensor_print_bar(float bar_value)
