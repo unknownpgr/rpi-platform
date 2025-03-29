@@ -5,21 +5,21 @@
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 static uint32_t timer_s = 0;
-static uint32_t timer_ns = 0;
 static uint32_t timer_prev_ns = 0;
+
+static inline uint32_t __get_time_ns()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    return ts.tv_nsec;
+}
 
 static inline void __timer_update()
 {
-    // Get current time
-    struct timespec ts;
-
     // Lock mutex to ensure thread safety
     pthread_mutex_lock(&lock);
 
-    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-
-    // Update timer_ns
-    timer_ns = ts.tv_nsec;
+    uint32_t timer_ns = __get_time_ns();
 
     // Calculate time since last update
     if (timer_ns < timer_prev_ns)
@@ -34,7 +34,6 @@ static inline void __timer_update()
 
 bool timer_init()
 {
-    __timer_update();
     return true;
 }
 
@@ -52,12 +51,10 @@ void timer_sleep_ns(uint32_t ns)
 
 uint32_t timer_get_s()
 {
-    __timer_update();
     return timer_s;
 }
 
 uint32_t timer_get_ns()
 {
-    __timer_update();
-    return timer_ns;
+    return __get_time_ns();
 }

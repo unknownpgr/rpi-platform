@@ -78,6 +78,16 @@ void pin_thread_to_cpu(int cpu)
     pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
 }
 
+void thread_timer(void *_)
+{
+    print("Timer thread started");
+    while (true)
+    {
+        usleep(10000); // Sleep for 10ms
+        timer_update();
+    }
+}
+
 void thread_encoder(void *_)
 {
     print("Encoder thread started");
@@ -206,6 +216,15 @@ int application_start()
     print("Peripherals initialized");
 
     int ret;
+
+    // Start timer thread
+    pthread_t timer_thread;
+    ret = pthread_create(&timer_thread, NULL, (void *)thread_timer, NULL);
+    if (ret != 0)
+    {
+        print("Error creating timer thread: %d", ret);
+        return -1;
+    }
 
     // Start encoder thread
     pthread_t encoder_thread;
