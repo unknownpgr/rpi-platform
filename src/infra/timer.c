@@ -1,5 +1,8 @@
 #include <timer.h>
 #include <time.h>
+#include <pthread.h>
+
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 static uint32_t timer_s = 0;
 static uint32_t timer_ns = 0;
@@ -9,6 +12,10 @@ static inline void __timer_update()
 {
     // Get current time
     struct timespec ts;
+
+    // Lock mutex to ensure thread safety
+    pthread_mutex_lock(&lock);
+
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
 
     // Update timer_ns
@@ -20,6 +27,9 @@ static inline void __timer_update()
         timer_s++;
     }
     timer_prev_ns = timer_ns;
+
+    // Unlock mutex
+    pthread_mutex_unlock(&lock);
 }
 
 bool timer_init()
