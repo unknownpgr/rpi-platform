@@ -27,3 +27,5 @@ add_executable(
     src/infra/timer.c
 )
 target_link_libraries(app m)
+find_package(Threads REQUIRED)
+target_link_libraries(app ${CMAKE_THREAD_LIBS_INIT})
