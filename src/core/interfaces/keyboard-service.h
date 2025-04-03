@@ -55,3 +55,4 @@
 
 void keyboard_init();
 uint16_t keyboard_get_key();
+void keyboard_wait_any_key();

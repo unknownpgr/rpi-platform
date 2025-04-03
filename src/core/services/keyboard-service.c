@@ -56,3 +56,16 @@ uint16_t keyboard_get_key()
         }
     }
 }
+
+void keyboard_wait_any_key()
+{
+    char c;
+    while (1)
+    {
+        c = keyboard_get_key();
+        if (c != KEY_NONE)
+        {
+            return;
+        }
+    }
+}
