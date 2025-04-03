@@ -16,4 +16,4 @@ rsync --exclude-from=.rsyncignore -avz . $TARGET:$TARGET_PATH
 # Note: -t option is used to force pseudo-terminal allocation.
 # Program would not receive SIGINT signal if it's not attached to a terminal.
 log "Executing run.sh on $TARGET"
-ssh -t $TARGET "taskset -c 3 bash $TARGET_PATH/run.sh"
+ssh -t $TARGET "bash $TARGET_PATH/run.sh"
