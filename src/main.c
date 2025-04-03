@@ -1,11 +1,13 @@
 #define _GNU_SOURCE
 #include <main.h>
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <pthread.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <sched.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <pthread.h>
 
 #include <log.h>
 #include <timer.h>
@@ -13,8 +15,10 @@
 #include <encoder.h>
 
 #include <imu-service.h>
+#include <music-service.h>
 #include <vsense-service.h>
 #include <sensor-service.h>
+#include <keyboard-service.h>
 
 typedef struct
 {
@@ -114,10 +118,14 @@ void thread_drive(void *_)
     timer_sleep_ns(100000000); // 100ms
 
     sensor_calibrate();
-    print("Calibration done");
 
-    float default_speed = 2.5;
-    float default_curvature = 1.5;
+    clear();
+    print("Ready to drive");
+    print("Press any key to start");
+    keyboard_wait_any_key();
+
+    float default_speed = .5;
+    float default_curvature = 3.5;
 
     pid_control_t pid_left, pid_right;
     pid_init(&pid_left);
@@ -151,6 +159,10 @@ void thread_drive(void *_)
     uint32_t dt_ns;
     while (true)
     {
+        // TODO: SPI is terribly slow. We need to optimize this.
+        // About 10848 loops per second. (~11kHz)
+        // Much lower then I expected. (~100kHz)
+
         // Read sensor values
         sensor_read_one(sensor_values);
 

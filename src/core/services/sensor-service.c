@@ -160,6 +160,7 @@ void sensor_calibrate()
     }
 
     // Read black max
+    clear();
     print("Collecting black max data...");
     uint32_t start_time = timer_get_s();
     uint16_t sensor_data[NUM_SENSORS];
@@ -196,6 +197,7 @@ void sensor_calibrate()
 
     // Read white max
     start_time = timer_get_s();
+    clear();
     print("Collecting white max data...");
     while (true)
     {
