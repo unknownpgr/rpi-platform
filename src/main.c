@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <main.h>
 
+#include <math.h>
 #include <stdio.h>
 #include <sched.h>
 #include <unistd.h>
@@ -80,6 +81,198 @@ void pin_thread_to_cpu(int cpu)
     CPU_SET(cpu, &cpuset);
     pthread_t thread = pthread_self();
     pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+}
+
+bool pseudo_random()
+{
+    // Implement pseudo-random binary sequence generator
+    static uint32_t a = 0x7FFFFFFF; // Seed value
+
+    // Implement PRBS-31 (x^31 + x^28 + 1)
+    uint32_t b = ((a >> 30) ^ (a >> 27)) & 1;
+    a = (a << 1) | b;
+    a &= 0x7FFFFFFF; // Keep it 31 bits
+    return b;
+}
+
+extern void dgelss_(
+    int *m, int *n, int *nrhs,
+    double *A, int *lda,
+    double *B, int *ldb,
+    double *S, double *rcond,
+    int *rank,
+    double *work, int *lwork,
+    int *info);
+
+void tune_pid()
+{
+    print("Tuning PID...");
+
+// System identification with ARX
+#define N 10000
+#define INPUT_MS 10
+
+    // Collect data
+    double u[N] = {0};
+    uint32_t y[N] = {0};
+
+    uint32_t _, right;
+    uint32_t i = 0;
+    double input = 0.0;
+    double battery_voltage = 0.0;
+
+    vsense_read();
+    battery_voltage = vsense_read();
+
+    encoder_get_counts(&_, &right);
+    y[0] = right;
+
+    loop_t loop;
+    loop_init(&loop, 1000000); // 1ms
+    uint32_t dt_ns;
+    uint32_t j = 0;
+    while (true)
+    {
+        if (loop_update(&loop, &dt_ns))
+        {
+            // Get y
+            encoder_get_counts(&_, &right);
+            y[i] = right;
+
+            // Generate pseudo-random input
+            if (j == INPUT_MS)
+            {
+                j = 0;
+                // Generate pseudo-random input
+                input = pseudo_random() ? 1.0 : -1.0;
+                input *= 5;
+                input /= battery_voltage; // Scale input by battery_voltage
+            }
+            else
+            {
+                j++;
+            }
+
+            motor_set_velocity(0, input);
+            u[i] = input;
+            i++;
+
+            if (i >= N)
+            {
+                break;
+            }
+
+            // Read battery_voltage
+            battery_voltage = vsense_read();
+        }
+    }
+    motor_set_velocity(0, 0);
+
+// Print data
+#if 0
+    printf("----------\n");
+    for (uint32_t j = 0; j < N; j++)
+    {
+        printf("%f, %d\n", u[j], y[j]);
+    }
+
+    printf("----------\n");
+#endif
+
+#define ARX_ORDER 2
+#define NUM_INPUTS 2
+
+    // Convert encoder counts to speed
+    double v[N] = {0};
+    for (uint32_t j = 1; j < N; j++)
+    {
+        v[j] = (int32_t)(y[j] - y[j - 1]);
+    }
+
+    uint32_t n;
+    if (INPUT_MS > ARX_ORDER)
+    {
+        n = INPUT_MS;
+    }
+    else
+    {
+        n = ARX_ORDER;
+    }
+
+    double *D = (double *)malloc(sizeof(double) * (N - n) * (ARX_ORDER + NUM_INPUTS));
+    double *Y = (double *)malloc(sizeof(double) * (N - n));
+    if (D == NULL || Y == NULL)
+    {
+        print("Error allocating memory");
+        return;
+    }
+
+    // Fill D and Y
+    for (uint32_t j = 0; j < N - n; j++)
+    {
+        for (uint32_t k = 0; k < ARX_ORDER; k++)
+        {
+            D[j * (ARX_ORDER + NUM_INPUTS) + k] = v[j + k];
+        }
+        for (uint32_t k = 0; k < NUM_INPUTS; k++)
+        {
+            D[j * (ARX_ORDER + NUM_INPUTS) + ARX_ORDER + k] = u[j + k];
+        }
+        Y[j] = v[j + n];
+    }
+
+    print("D, Y filled.");
+
+    // Solve the least squares problem
+    int m = N - n;                   // Number of rows
+    int n_ = ARX_ORDER + NUM_INPUTS; // Number of columns
+    int nrhs = 1;                    // Number of right-hand sides
+    int lda = m;
+    int ldb = m;
+    int lwork = -1;
+    int info = 0;
+    double rcond = 1e-10;
+    double *S = (double *)malloc(sizeof(double) * n_);
+    double wkopt;
+    double *work = NULL;
+    int rank = 0;
+
+    print("LAPACK dgelss_");
+    // Query optimal workspace size
+    dgelss_(&m, &n_, &nrhs, D, &lda, Y, &ldb, S, &rcond, &rank, &wkopt, &lwork, &info);
+    lwork = (int)wkopt;
+    work = (double *)malloc(sizeof(double) * lwork);
+    if (work == NULL)
+    {
+        print("Error allocating memory for work");
+        free(D);
+        free(Y);
+        return;
+    }
+    print("LAPACK dgelss_ query done.");
+
+    // Solve the least squares problem
+    dgelss_(&m, &n_, &nrhs, D, &lda, Y, &ldb, S, &rcond, &rank, work, &lwork, &info);
+    print("LAPACK dgelss_ done.");
+    if (info != 0)
+    {
+        print("Error in dgelss_: %d", info);
+        return;
+    }
+
+    // Print results
+    print("ARX coefficients:");
+    for (uint32_t j = 0; j < ARX_ORDER + NUM_INPUTS; j++)
+    {
+        print("%f", Y[j]);
+    }
+
+    // Free memory
+    free(D);
+    free(Y);
+    free(S);
+    free(work);
+    print("Free memory done.");
 }
 
 void thread_timer(void *_)

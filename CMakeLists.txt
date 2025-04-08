@@ -28,4 +28,5 @@ add_executable(
 )
 target_link_libraries(app m)
 find_package(Threads REQUIRED)
-target_link_libraries(app ${CMAKE_THREAD_LIBS_INIT})
+find_package(LAPACK REQUIRED)
+target_link_libraries(app ${CMAKE_THREAD_LIBS_INIT} ${LAPACK_LIBRARIES})
