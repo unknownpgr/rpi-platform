@@ -5,6 +5,11 @@
 - Raspberry Pi 3 with OS installed.
 - Keyfile based SSH access configured.
 - CMake installed on Raspberry Pi.
+- LAPACK installed on Raspberry Pi.
+  ```
+  sudo apt update
+  sudo apt install liblapack-dev libblas-dev
+  ```
 
 ## How `upload.sh` works
 
