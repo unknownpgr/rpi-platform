@@ -11,6 +11,7 @@ function log() {
 log "Uploading files to $TARGET:$TARGET_PATH"
 cd `dirname $0`
 rsync --exclude-from=.rsyncignore -avz . $TARGET:$TARGET_PATH
+ssh -t $TARGET "sync"
 
 # Execute
 # Note: -t option is used to force pseudo-terminal allocation.
