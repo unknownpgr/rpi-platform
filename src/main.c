@@ -13,6 +13,7 @@
 #include <log.h>
 #include <timer.h>
 #include <motor.h>
+#include <linalg.h>
 #include <encoder.h>
 
 #include <imu-service.h>
@@ -94,15 +95,6 @@ bool pseudo_random()
     a &= 0x7FFFFFFF; // Keep it 31 bits
     return b;
 }
-
-extern void dgelss_(
-    int *m, int *n, int *nrhs,
-    double *A, int *lda,
-    double *B, int *ldb,
-    double *S, double *rcond,
-    int *rank,
-    double *work, int *lwork,
-    int *info);
 
 void tune_pid()
 {
@@ -201,11 +193,6 @@ void tune_pid()
 
     double *D = (double *)malloc(sizeof(double) * (N - n) * (ARX_ORDER + NUM_INPUTS));
     double *Y = (double *)malloc(sizeof(double) * (N - n));
-    if (D == NULL || Y == NULL)
-    {
-        print("Error allocating memory");
-        return;
-    }
 
     // Fill D and Y
     for (uint32_t j = 0; j < N - n; j++)
@@ -221,58 +208,22 @@ void tune_pid()
         Y[j] = v[j + n];
     }
 
-    print("D, Y filled.");
-
     // Solve the least squares problem
-    int m = N - n;                   // Number of rows
-    int n_ = ARX_ORDER + NUM_INPUTS; // Number of columns
-    int nrhs = 1;                    // Number of right-hand sides
-    int lda = m;
-    int ldb = m;
-    int lwork = -1;
-    int info = 0;
-    double rcond = 1e-10;
-    double *S = (double *)malloc(sizeof(double) * n_);
-    double wkopt;
-    double *work = NULL;
-    int rank = 0;
+    double *x = (double *)malloc(sizeof(double) * (ARX_ORDER + NUM_INPUTS));
 
-    print("LAPACK dgelss_");
-    // Query optimal workspace size
-    dgelss_(&m, &n_, &nrhs, D, &lda, Y, &ldb, S, &rcond, &rank, &wkopt, &lwork, &info);
-    lwork = (int)wkopt;
-    work = (double *)malloc(sizeof(double) * lwork);
-    if (work == NULL)
-    {
-        print("Error allocating memory for work");
-        free(D);
-        free(Y);
-        return;
-    }
-    print("LAPACK dgelss_ query done.");
-
-    // Solve the least squares problem
-    dgelss_(&m, &n_, &nrhs, D, &lda, Y, &ldb, S, &rcond, &rank, work, &lwork, &info);
-    print("LAPACK dgelss_ done.");
-    if (info != 0)
-    {
-        print("Error in dgelss_: %d", info);
-        return;
-    }
+    pseudo_inverse(ARX_ORDER + NUM_INPUTS, N - n, D, Y, x);
 
     // Print results
-    print("ARX coefficients:");
+    printf("ARX coefficients:\n");
     for (uint32_t j = 0; j < ARX_ORDER + NUM_INPUTS; j++)
     {
-        print("%f", Y[j]);
+        printf("%f\n", x[j]);
     }
 
     // Free memory
     free(D);
     free(Y);
-    free(S);
-    free(work);
-    print("Free memory done.");
+    free(x);
 }
 
 void thread_timer(void *_)
