@@ -333,6 +333,11 @@ void thread_drive(void *_)
     int32_t left, right;
     int32_t left_prev, right_prev;
 
+    // Initialize encoder values
+    encoder_get_counts(&left, &right);
+    left_prev = left;
+    right_prev = right;
+
     loop_t loop_motor;
     loop_t loop_vsense;
 
