@@ -51,30 +51,6 @@ double pid_update(pid_control_t *pid, double current, double dt)
     return pid->kP * error + pid->kI * pid->error_accum + pid->kD * derivative;
 }
 
-typedef struct
-{
-    uint32_t interval_ns;
-    uint32_t last_time_ns;
-} loop_t;
-
-void loop_init(loop_t *loop, uint32_t interval_ns)
-{
-    loop->interval_ns = interval_ns;
-    loop->last_time_ns = timer_get_ns();
-}
-
-bool loop_update(loop_t *loop, uint32_t *dt_ns)
-{
-    uint32_t current_time = timer_get_ns();
-    *dt_ns = DIFF(current_time, loop->last_time_ns);
-    if (*dt_ns >= loop->interval_ns)
-    {
-        loop->last_time_ns = current_time;
-        return true;
-    }
-    return false;
-}
-
 void pin_thread_to_cpu(int cpu)
 {
     cpu_set_t cpuset;

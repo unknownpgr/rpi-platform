@@ -12,3 +12,14 @@ void timer_update(); // NOTE: This function must be called at least once every .
 void timer_sleep_ns(uint32_t ns);
 uint32_t timer_get_s();
 uint32_t timer_get_ns();
+
+// Loop-related
+
+typedef struct
+{
+    uint32_t interval_ns;
+    uint32_t last_time_ns;
+} loop_t;
+
+void loop_init(loop_t *loop, uint32_t interval_ns);
+bool loop_update(loop_t *loop, uint32_t *dt_ns);

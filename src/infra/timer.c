@@ -58,3 +58,21 @@ uint32_t timer_get_ns()
 {
     return __get_time_ns();
 }
+
+void loop_init(loop_t *loop, uint32_t interval_ns)
+{
+    loop->interval_ns = interval_ns;
+    loop->last_time_ns = timer_get_ns();
+}
+
+bool loop_update(loop_t *loop, uint32_t *dt_ns)
+{
+    uint32_t current_time = timer_get_ns();
+    *dt_ns = DIFF(current_time, loop->last_time_ns);
+    if (*dt_ns >= loop->interval_ns)
+    {
+        loop->last_time_ns = current_time;
+        return true;
+    }
+    return false;
+}
