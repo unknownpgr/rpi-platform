@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-
 extern void dgelss_(
     int *m, int *n, int *nrhs,
     double *A, int *lda,

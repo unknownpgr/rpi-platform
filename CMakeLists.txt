@@ -25,6 +25,7 @@ add_executable(
     src/infra/motor.c
     src/infra/encoder.c
     src/infra/timer.c
+    src/infra/linalg.c
 )
 target_link_libraries(app m)
 find_package(Threads REQUIRED)

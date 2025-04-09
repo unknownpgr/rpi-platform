@@ -1,6 +1,9 @@
 #pragma once
 #include <stdbool.h>
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 /**
  * Solve the least squares problem for the equation D * x = y.
  * D is a matrix of size (y_dim, x_dim), row-major,

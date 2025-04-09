@@ -60,7 +60,7 @@ void pin_thread_to_cpu(int cpu)
     pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
 }
 
-bool pseudo_random()
+bool tune_pseudo_random_bit_sequence()
 {
     // Implement pseudo-random binary sequence generator
     static uint32_t a = 0x7FFFFFFF; // Seed value
@@ -72,134 +72,145 @@ bool pseudo_random()
     return b;
 }
 
-void tune_pid()
+void tune_collect_motor_response(double *input, double *output, uint32_t n, uint32_t dt_ns, bool is_left)
 {
-    print("Tuning PID...");
+    double max_input = 5.0;
 
-// System identification with ARX
-#define N 10000
-#define INPUT_MS 10
-
-    // Collect data
-    double u[N] = {0};
-    uint32_t y[N] = {0};
-
-    uint32_t _, right;
-    uint32_t i = 0;
-    double input = 0.0;
-    double battery_voltage = 0.0;
-
-    vsense_read();
-    battery_voltage = vsense_read();
-
-    encoder_get_counts(&_, &right);
-    y[0] = right;
+    motor_enable(true);
+    motor_set_velocity(0, 0);
 
     loop_t loop;
-    loop_init(&loop, 1000000); // 1ms
-    uint32_t dt_ns;
-    uint32_t j = 0;
+    loop_init(&loop, dt_ns);
+
+    uint32_t previous_position = 0;
+    uint32_t left, right;
+
+    encoder_get_counts(&left, &right);
+    if (is_left)
+    {
+        previous_position = left;
+    }
+    else
+    {
+        previous_position = right;
+    }
+
+    double battery_voltage = 0.0;
+    vsense_read();
+    battery_voltage = vsense_read();
+    print("Battery Voltage: %2.2f", battery_voltage);
+
+    uint32_t i = 0;
+    uint32_t _;
+
+    double input_value = 0.0;
+
     while (true)
     {
-        if (loop_update(&loop, &dt_ns))
+        if (loop_update(&loop, &_))
         {
-            // Get y
-            encoder_get_counts(&_, &right);
-            y[i] = right;
-
-            // Generate pseudo-random input
-            if (j == INPUT_MS)
+            if (i % 10 == 0)
             {
-                j = 0;
-                // Generate pseudo-random input
-                input = pseudo_random() ? 1.0 : -1.0;
-                input *= 5;
-                input /= battery_voltage; // Scale input by battery_voltage
-            }
-            else
-            {
-                j++;
+                input_value = tune_pseudo_random_bit_sequence() ? max_input : -max_input;
+                input_value /= battery_voltage;
             }
 
-            motor_set_velocity(0, input);
-            u[i] = input;
+            // Output
+            {
+                encoder_get_counts(&left, &right);
+                if (is_left)
+                {
+                    output[i] = (double)(int32_t)(left - previous_position);
+                    previous_position = left;
+                }
+                else
+                {
+                    output[i] = (double)(int32_t)(right - previous_position);
+                    previous_position = right;
+                }
+            }
+
+            // Input
+            {
+                if (is_left)
+                {
+                    motor_set_velocity(input_value, 0);
+                }
+                else
+                {
+                    motor_set_velocity(0, input_value);
+                }
+                input[i] = input_value;
+            }
+
             i++;
-
-            if (i >= N)
+            if (i >= n)
             {
                 break;
             }
 
             // Read battery_voltage
-            battery_voltage = vsense_read();
+            battery_voltage = vsense_read() * 0.1 + battery_voltage * 0.9;
         }
     }
+
+    // Stop motor
     motor_set_velocity(0, 0);
+    motor_enable(false);
+}
 
-// Print data
-#if 0
-    printf("----------\n");
-    for (uint32_t j = 0; j < N; j++)
-    {
-        printf("%f, %d\n", u[j], y[j]);
-    }
+void tune_pid()
+{
+    // System identification with ARX
 
-    printf("----------\n");
-#endif
+    print("Tuning PID...");
 
+#define N 10000
+#define DT_NS 1000000 // 1ms
 #define ARX_ORDER 2
-#define NUM_INPUTS 2
 
-    // Convert encoder counts to speed
+    double u[N] = {0};
     double v[N] = {0};
-    for (uint32_t j = 1; j < N; j++)
-    {
-        v[j] = (int32_t)(y[j] - y[j - 1]);
-    }
+    tune_collect_motor_response(u, v, N, DT_NS, false);
 
-    uint32_t n;
-    if (INPUT_MS > ARX_ORDER)
+    // Print results
+    printf("----------\n");
+    fflush(stdout);
+    for (uint32_t i = 0; i < N; i++)
     {
-        n = INPUT_MS;
+        printf("%f, %f\n", u[i], v[i]);
+        fflush(stdout);
     }
-    else
-    {
-        n = ARX_ORDER;
-    }
+    printf("----------\n");
+    fflush(stdout);
 
-    double *D = (double *)malloc(sizeof(double) * (N - n) * (ARX_ORDER + NUM_INPUTS));
-    double *Y = (double *)malloc(sizeof(double) * (N - n));
+    uint32_t rows = N - ARX_ORDER; // Number of rows in D
+    uint32_t cols = ARX_ORDER * 2; // Number of columns in D
 
-    // Fill D and Y
-    for (uint32_t j = 0; j < N - n; j++)
+    double *D = (double *)malloc(sizeof(double) * rows * cols);
+    double *y = (double *)malloc(sizeof(double) * rows);
+    double *x = (double *)malloc(sizeof(double) * cols);
+
+    // Fill D and y
+    for (uint32_t i = 0; i < rows; i++)
     {
         for (uint32_t k = 0; k < ARX_ORDER; k++)
         {
-            D[j * (ARX_ORDER + NUM_INPUTS) + k] = v[j + k];
+            D[i * cols + k] = v[i + k];
+            D[i * cols + ARX_ORDER + k] = u[i + k];
         }
-        for (uint32_t k = 0; k < NUM_INPUTS; k++)
-        {
-            D[j * (ARX_ORDER + NUM_INPUTS) + ARX_ORDER + k] = u[j + k];
-        }
-        Y[j] = v[j + n];
+        y[i] = v[i + ARX_ORDER];
     }
 
     // Solve the least squares problem
-    double *x = (double *)malloc(sizeof(double) * (ARX_ORDER + NUM_INPUTS));
-
-    pseudo_inverse(ARX_ORDER + NUM_INPUTS, N - n, D, Y, x);
-
-    // Print results
-    printf("ARX coefficients:\n");
-    for (uint32_t j = 0; j < ARX_ORDER + NUM_INPUTS; j++)
-    {
-        printf("%f\n", x[j]);
-    }
+    pseudo_inverse(rows, cols, D, y, x);
 
     // Free memory
     free(D);
-    free(Y);
+    free(y);
     free(x);
+
+    // v[t] = x[0] * v[t-1] + x[1] * v[t-2] + x[2] * u[t-1] + x[3] * u[t-2]
 }
 
 void thread_timer(void *_)
@@ -233,6 +244,10 @@ void thread_drive(void *_)
 {
     print("Drive thread started");
     pin_thread_to_cpu(3);
+
+    tune_pid();
+    while (1)
+        ;
 
     motor_enable(true);
     timer_sleep_ns(100000000); // 100ms
