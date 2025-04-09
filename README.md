@@ -1,5 +1,7 @@
 # RPi Platform
 
+Clean-Architecture based, almost pure C project for Raspberry Pi based real time robotics applications.
+
 ## Requirements
 
 - Raspberry Pi 3 with OS installed.
@@ -96,7 +98,7 @@ Edit the `/boot/firmware/cmdline.txt` file to include the following settings:
 console=serial0,115200 multipath=off dwc_otg.lpm_enable=0 console=tty1 root=LABEL=writable rootfstype=ext4 rootwait fixrtc isolcpus=3,2 quiet loglevel=5 logo.nologo
 ```
 
-### Boot Time Analysis
+#### Boot Time Analysis
 
 Before the optimization, the boot time was around 2 minutes and 7 seconds.
 
@@ -112,3 +114,9 @@ After the optimization, the boot time was reduced to around 22 seconds.
 Startup finished in 9.801s (kernel) + 12.304s (userspace) = 22.105s
 graphical.target reached after 12.237s in userspace
 ```
+
+## Useful References
+
+- [BCM2835 ARM Peripherals](https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2835/README.md)
+- [AXI Monitor](https://forums.raspberrypi.com/viewtopic.php?p=1664415)
+- [SPI Register Control](https://forums.raspberrypi.com/viewtopic.php?t=365275)
