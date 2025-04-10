@@ -51,15 +51,6 @@ double pid_update(pid_control_t *pid, double current, double dt)
     return pid->kP * error + pid->kI * pid->error_accum + pid->kD * derivative;
 }
 
-void pin_thread_to_cpu(int cpu)
-{
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(cpu, &cpuset);
-    pthread_t thread = pthread_self();
-    pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
-}
-
 bool tune_pseudo_random_bit_sequence()
 {
     // Implement pseudo-random binary sequence generator
@@ -159,10 +150,9 @@ void tune_collect_motor_response(double *input, double *output, uint32_t n, uint
     motor_enable(false);
 }
 
-void tune_pid()
+void tune_collect()
 {
-    // System identification with ARX
-
+    // System identification with ARX model
     print("Tuning PID...");
 
 #define N 10000
@@ -171,10 +161,26 @@ void tune_pid()
 
     double u[N] = {0};
     double v[N] = {0};
-    tune_collect_motor_response(u, v, N, DT_NS, false);
 
-    // Print results
+    // Collect motor response of left motor
+    tune_collect_motor_response(u, v, N, DT_NS, true);
+
+    // Print results for left motor
     printf("----------\n");
+    fflush(stdout);
+    for (uint32_t i = 0; i < N; i++)
+    {
+        printf("%f, %f\n", u[i], v[i]);
+        fflush(stdout);
+    }
+
+    printf("----------\n");
+    fflush(stdout);
+
+    // Collect motor response of right motor
+    tune_collect_motor_response(u, v, N, DT_NS, true);
+
+    // Print results for right motor
     fflush(stdout);
     for (uint32_t i = 0; i < N; i++)
     {
@@ -183,34 +189,86 @@ void tune_pid()
     }
     printf("----------\n");
     fflush(stdout);
+}
 
-    uint32_t rows = N - ARX_ORDER; // Number of rows in D
-    uint32_t cols = ARX_ORDER * 2; // Number of columns in D
+void pin_thread_to_cpu(int cpu)
+{
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(cpu, &cpuset);
+    pthread_t thread = pthread_self();
+    pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+}
 
-    double *D = (double *)malloc(sizeof(double) * rows * cols);
-    double *y = (double *)malloc(sizeof(double) * rows);
-    double *x = (double *)malloc(sizeof(double) * cols);
+double line_mu(double distance)
+{
+#define ABS(x) ((x) < 0 ? -(x) : (x))
 
-    // Fill D and y
-    for (uint32_t i = 0; i < rows; i++)
+    double mu = 1 - 3 * ABS(distance);
+    if (mu < 0)
     {
-        for (uint32_t k = 0; k < ARX_ORDER; k++)
+        mu = 0;
+    }
+    return mu;
+
+#undef ABS
+}
+
+double line_find_position(double *sensor_values, double prev_position)
+{
+#define CANDIDATES 1000
+#define NUM_SENSORS 16
+
+    static double candidate_positions[CANDIDATES];
+    static double sensor_positions[NUM_SENSORS];
+
+    // Initialize candidate positions and sensor positions
+    {
+        static bool is_initialized = false;
+        if (!is_initialized)
         {
-            D[i * cols + k] = v[i + k];
-            D[i * cols + ARX_ORDER + k] = u[i + k];
+            for (int i = 0; i < CANDIDATES; i++)
+            {
+                candidate_positions[i] = i * 2.0 / CANDIDATES - 1.0;
+            }
+            for (int i = 0; i < NUM_SENSORS; i++)
+            {
+                sensor_positions[i] = i * 2.0 / NUM_SENSORS - 1.0;
+            }
+            is_initialized = true;
         }
-        y[i] = v[i + ARX_ORDER];
     }
 
-    // Solve the least squares problem
-    pseudo_inverse(rows, cols, D, y, x);
+    double optimal_likelihood = 999999999;
+    double optimal_position = 0;
 
-    // Free memory
-    free(D);
-    free(y);
-    free(x);
+    for (int i = 0; i < CANDIDATES; i++)
+    {
+        double candidate_position = candidate_positions[i];
+        double likelihood = 0;
 
-    // v[t] = x[0] * v[t-1] + x[1] * v[t-2] + x[2] * u[t-1] + x[3] * u[t-2]
+        // Set the prior
+        likelihood = -line_mu(candidate_position - prev_position);
+
+        // Add evidence
+        for (int j = 0; j < NUM_SENSORS; j++)
+        {
+            double tmp = sensor_values[j] - line_mu(candidate_position - sensor_positions[j]);
+            likelihood += tmp * tmp;
+        }
+
+        // Check if this is the best position
+        if (likelihood < optimal_likelihood)
+        {
+            optimal_likelihood = likelihood;
+            optimal_position = candidate_position;
+        }
+    }
+
+    return optimal_position;
+
+#undef CANDIDATES
+#undef NUM_SENSORS
 }
 
 void thread_timer(void *_)
@@ -245,7 +303,7 @@ void thread_drive(void *_)
     print("Drive thread started");
     pin_thread_to_cpu(3);
 
-    tune_pid();
+    tune_collect();
     while (1)
         ;
 
