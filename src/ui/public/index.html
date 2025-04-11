@@ -11,6 +11,14 @@
     />
   </head>
   <body>
+    <div>
+      <button onclick="sendCommand('cali_low')">Calibrate Low</button>
+      <button onclick="sendCommand('cali_high')">Calibrate High</button>
+      <button onclick="sendCommand('cali_save')">Save Calibration</button>
+      <button onclick="sendCommand('drive')">Drive</button>
+      <button onclick="sendCommand('idle')">Idle</button>
+      <button onclick="sendCommand('quit')">Quit</button>
+    </div>
     <div id="terminal"></div>
     <script>
       const websocket = new WebSocket("/");
@@ -33,6 +41,11 @@
       };
       websocket.onclose = () => console.log("WebSocket closed");
       websocket.onopen = () => console.log("WebSocket opened");
+
+      async function sendCommand(command) {
+        const response = await fetch(`/command?command=${command}`);
+        console.log(response);
+      }
     </script>
   </body>
 </html>

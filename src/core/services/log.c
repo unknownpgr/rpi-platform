@@ -28,7 +28,7 @@ void print(const char *format, ...)
     vsnprintf(buf, sizeof(buf), format, args);
     va_end(args);
 
-    printf("[%07.3f] %s\n", (s - start_time_s), buf);
+    printf("[%07.3f] %s\r\n", (s - start_time_s), buf);
     fflush(stdout);
 }
 

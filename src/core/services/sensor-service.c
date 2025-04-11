@@ -19,21 +19,57 @@
 #define IR_S00 26
 #define IR_SEN 27
 
-typedef struct
-{
-    bool is_calibrated;
-    double gain[NUM_SENSORS];
-    double offset[NUM_SENSORS];
-} calibration_data_t;
+sensor_state_t *sensor_state;
 
 typedef union
 {
-    calibration_data_t data;
-    uint8_t raw[sizeof(calibration_data_t) + 5];
+    calibration_t data;
+    uint8_t raw[sizeof(calibration_t)];
 } calibration_data_union_t;
 
 static int spi_fd;
-static calibration_data_t calibration_data = {0};
+
+void sensor_save_calibration()
+{
+    // If not calibrated, do nothing
+    if (!sensor_state->is_calibrated)
+    {
+        warning("Not calibrated, skipping calibration save");
+        return;
+    }
+
+    calibration_data_union_t union_data = {0};
+    uint8_t buf[sizeof(union_data.raw) + 5] = {0};
+
+    // Set magic number
+    buf[0] = 'C';
+    buf[1] = 'A';
+    buf[2] = 'L';
+    buf[3] = 'I';
+
+    // Copy calibration data into buffer
+    union_data.data = sensor_state->calibration;
+    memcpy(buf + 4, union_data.raw, sizeof(union_data.raw));
+
+    // Calculate checksum
+    uint8_t checksum = 0;
+    for (uint32_t i = 0; i < sizeof(buf) - 1; i++)
+    {
+        checksum += buf[i];
+    }
+    buf[sizeof(buf) - 1] = checksum;
+
+    // Write calibration data to file
+    FILE *file = fopen(CALIBRATION_FILE, "wb");
+    if (file == NULL)
+    {
+        error("Failed to open calibration file. Calibration not saved.");
+        return;
+    }
+    fwrite(buf, sizeof(buf), 1, file);
+    fclose(file);
+    print("Calibration saved to %s", CALIBRATION_FILE);
+}
 
 void sensor_load_calibration()
 {
@@ -46,12 +82,13 @@ void sensor_load_calibration()
     }
 
     // Read calibration data
-    calibration_data_union_t buf = {0};
-    fread(buf.raw, sizeof(buf.raw), 1, file);
+    uint8_t buf[sizeof(calibration_data_union_t) + 5] = {0};
+
+    fread(buf, sizeof(buf), 1, file);
     fclose(file);
 
     // Validate magic number
-    if (buf.raw[0] != 'C' || buf.raw[1] != 'A' || buf.raw[2] != 'L' || buf.raw[3] != 'I')
+    if (buf[0] != 'C' || buf[1] != 'A' || buf[2] != 'L' || buf[3] != 'I')
     {
         error("Invalid magic number. Not calibrated.");
         return;
@@ -59,61 +96,34 @@ void sensor_load_calibration()
 
     // Check checksum
     uint8_t checksum = 0;
-    for (uint32_t i = 0; i < sizeof(buf.raw) - 1; i++)
+    for (uint32_t i = 0; i < sizeof(buf) - 1; i++)
     {
-        checksum += buf.raw[i];
+        checksum += buf[i];
     }
-    if (checksum != buf.raw[sizeof(buf.raw) - 1])
+    if (checksum != buf[sizeof(buf) - 1])
     {
         error("Invalid checksum. Not calibrated.");
         return;
     }
 
-    // Copy calibration data into buffer
-    calibration_data = buf.data;
+    // Copy buffer into calibration data
+    calibration_data_union_t union_data = {0};
+    memcpy(&union_data.raw, buf + 4, sizeof(union_data.raw));
+    sensor_state->calibration = union_data.data;
+
+    // Set calibrated flag
+    sensor_state->is_calibrated = true;
+
+    print("Calibration loaded from %s", CALIBRATION_FILE);
 }
 
-void sensor_save_calibration()
+void sensor_init(sensor_state_t *state)
 {
-    // If not calibrated, do nothing
-    if (!calibration_data.is_calibrated)
-    {
-        warning("Not calibrated, skipping calibration save");
-        return;
-    }
+    sensor_state = state;
+    state->is_calibrated = false;
+    state->sensor_index = 0;
+    state->state = STATE_READING;
 
-    calibration_data_union_t buf = {0};
-
-    // Set magic number
-    buf.raw[0] = 'C';
-    buf.raw[1] = 'A';
-    buf.raw[2] = 'L';
-    buf.raw[3] = 'I';
-
-    // Copy calibration data into buffer
-    buf.data = calibration_data;
-
-    // Calculate checksum
-    uint8_t checksum = 0;
-    for (uint32_t i = 0; i < sizeof(buf.raw) - 1; i++)
-    {
-        checksum += buf.raw[i];
-    }
-    buf.raw[sizeof(buf.raw) - 1] = checksum;
-
-    // Write calibration data to file
-    FILE *file = fopen(CALIBRATION_FILE, "wb");
-    if (file == NULL)
-    {
-        error("Failed to open calibration file. Calibration not saved.");
-        return;
-    }
-    fwrite(buf.raw, sizeof(buf.raw), 1, file);
-    fclose(file);
-}
-
-void sensor_init()
-{
     // Set GPIO mode
     dev_spi_enable(true);
 
@@ -186,6 +196,7 @@ uint16_t sensor_read_raw(uint8_t sensor_index)
 
     // Read sensor data
     dev_spi_transfer(tx, rx, sizeof(tx));
+    dev_spi_transfer(tx, rx, sizeof(tx));
 
     // Turn off IR LED
     dev_gpio_clear_pin(IR_SEN);
@@ -197,124 +208,62 @@ uint16_t sensor_read_raw(uint8_t sensor_index)
     return data;
 }
 
-void sensor_read_one(double *sensor_data)
+void sensor_read_one()
 {
-    static uint8_t sensor_index = 0;
-
     // Read raw sensor data
-    uint16_t data = sensor_read_raw(sensor_index);
+    uint16_t data = sensor_read_raw(sensor_state->sensor_index);
+    sensor_state->raw_data[sensor_state->sensor_index] = data;
 
-    // Normalize sensor data
-    sensor_data[sensor_index] = data * calibration_data.gain[sensor_index] + calibration_data.offset[sensor_index];
-    if (sensor_data[sensor_index] < 0)
+    // Normalize ALL sensor data
+    for (uint8_t i = 0; i < NUM_SENSORS; i++)
     {
-        sensor_data[sensor_index] = 0;
-    }
-    else if (sensor_data[sensor_index] > 1)
-    {
-        sensor_data[sensor_index] = 1;
+        sensor_state->sensor_data[i] = (double)(sensor_state->raw_data[i] - sensor_state->calibration.sensor_low[i]) / (sensor_state->calibration.sensor_high[i] - sensor_state->calibration.sensor_low[i]);
+        if (sensor_state->sensor_data[i] < 0)
+        {
+            sensor_state->sensor_data[i] = 0;
+        }
+        else if (sensor_state->sensor_data[i] > 1)
+        {
+            sensor_state->sensor_data[i] = 1;
+        }
     }
 
     // Increment sensor index
-    sensor_index++;
-    if (sensor_index >= NUM_SENSORS)
+    sensor_state->sensor_index++;
+    if (sensor_state->sensor_index >= NUM_SENSORS)
     {
-        sensor_index = 0;
+        sensor_state->sensor_index = 0;
     }
 }
 
-void sensor_calibrate()
+void sensor_loop()
 {
-    uint16_t black_max[NUM_SENSORS] = {0};
-    uint16_t white_max[NUM_SENSORS] = {0};
-
-    // Read black max
-    clear();
-    print("Collecting black max data...");
-    uint32_t start_time = timer_get_s();
-    uint16_t sensor_data[NUM_SENSORS];
-    while (true)
+    switch (sensor_state->state)
     {
-        // Read sensor data
+    case STATE_READING:
+        sensor_read_one(sensor_state->sensor_data);
+        break;
+    case STATE_CALI_LOW:
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {
-            sensor_data[i] = sensor_read_raw(i);
-            if (sensor_data[i] > black_max[i])
+            sensor_state->raw_data[i] = sensor_read_raw(i);
+            if (sensor_state->raw_data[i] > sensor_state->calibration.sensor_low[i])
             {
-                black_max[i] = sensor_data[i];
+                sensor_state->calibration.sensor_low[i] = sensor_state->raw_data[i];
             }
         }
-
-        // Print black max data
-        char buf[100];
-        char *p = buf;
-        p += sprintf(p, "Black max: ");
+        break;
+    case STATE_CALI_HIGH:
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {
-            p += sprintf(p, "%04d ", black_max[i]);
-        }
-        printf("\r%s", buf);
-        fflush(stdout);
-
-        // Check for keyboard input
-        if (keyboard_get_key() != KEY_NONE)
-        {
-            break;
-        }
-    }
-    printf("\n");
-
-    // Read white max
-    start_time = timer_get_s();
-    clear();
-    print("Collecting white max data...");
-    while (true)
-    {
-        // Read sensor data
-        for (uint8_t i = 0; i < NUM_SENSORS; i++)
-        {
-            sensor_data[i] = sensor_read_raw(i);
-            if (sensor_data[i] > white_max[i])
+            sensor_state->raw_data[i] = sensor_read_raw(i);
+            if (sensor_state->raw_data[i] > sensor_state->calibration.sensor_high[i])
             {
-                white_max[i] = sensor_data[i];
+                sensor_state->calibration.sensor_high[i] = sensor_state->raw_data[i];
             }
         }
-
-        // Print white max data
-        char buf[100];
-        char *p = buf;
-        p += sprintf(p, "White max: ");
-        for (uint8_t i = 0; i < NUM_SENSORS; i++)
-        {
-            p += sprintf(p, "%04d ", white_max[i]);
-        }
-        printf("\r%s", buf);
-        fflush(stdout);
-
-        // Check for keyboard input
-        if (keyboard_get_key() != KEY_NONE)
-        {
-            break;
-        }
+        break;
     }
-    printf("\n");
-
-    // Calculate gain and offset
-    for (uint8_t i = 0; i < NUM_SENSORS; i++)
-    {
-        calibration_data.gain[i] = 1.0 / (white_max[i] - black_max[i]);
-        calibration_data.offset[i] = -black_max[i] * calibration_data.gain[i];
-    }
-    calibration_data.is_calibrated = true;
-
-    // Save calibration data
-    sensor_save_calibration();
-    print("Calibration saved");
-}
-
-bool sensor_is_calibrated()
-{
-    return calibration_data.is_calibrated;
 }
 
 void sensor_print_bar(float bar_value)
@@ -407,7 +356,7 @@ void sensor_test_calibration()
             for (uint8_t i = 0; i < 16; i++)
             {
                 // Calculate calibrated value
-                double calibrated_value = sensor_data[i] * calibration_data.gain[i] + calibration_data.offset[i];
+                double calibrated_value = (double)(sensor_data[i] - sensor_state->calibration.sensor_low[i]) / (sensor_state->calibration.sensor_high[i] - sensor_state->calibration.sensor_low[i]);
 
                 // Clamp value into range [0, 1]
                 if (calibrated_value < 0)
