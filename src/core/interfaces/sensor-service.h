@@ -1,9 +1,11 @@
 #pragma once
 
 #include <stdint.h>
-
+#include <stdbool.h>
 void sensor_init();
-void sensor_read(uint16_t *sensor_data);
+void sensor_load_calibration();
+bool sensor_is_calibrated();
+
 void sensor_read_one(double *sensor_data);
 void sensor_calibrate();
 

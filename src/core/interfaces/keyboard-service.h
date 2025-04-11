@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <stdbool.h>
 
 #define KEY_NONE 0x00
 #define KEY_CTRL 0x03 // 3
@@ -55,4 +56,5 @@
 
 void keyboard_init();
 uint16_t keyboard_get_key();
-void keyboard_wait_any_key();
+uint16_t keyboard_wait_any_key();
+bool keyboard_confirm(const char *message);

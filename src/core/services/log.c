@@ -32,6 +32,20 @@ void print(const char *format, ...)
     fflush(stdout);
 }
 
+void error(const char *format, ...)
+{
+    printf("\033[31m");
+    print(format);
+    printf("\033[0m");
+}
+
+void warning(const char *format, ...)
+{
+    printf("\033[33m");
+    print(format);
+    printf("\033[0m");
+}
+
 void clear()
 {
     printf("\033[H\033[J");

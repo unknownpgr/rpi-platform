@@ -57,7 +57,7 @@ uint16_t keyboard_get_key()
     }
 }
 
-void keyboard_wait_any_key()
+uint16_t keyboard_wait_any_key()
 {
     char c;
     while (1)
@@ -65,7 +65,28 @@ void keyboard_wait_any_key()
         c = keyboard_get_key();
         if (c != KEY_NONE)
         {
-            return;
+            return c;
+        }
+    }
+}
+
+bool keyboard_confirm(const char *message)
+{
+    while (true)
+    {
+        printf("%s (y/n): ", message);
+        uint16_t key = keyboard_get_key();
+        if (key == 'y' || key == 'Y')
+        {
+            return true;
+        }
+        else if (key == 'n' || key == 'N')
+        {
+            return false;
+        }
+        else
+        {
+            printf("Invalid input. Please enter y or n.\n");
         }
     }
 }
