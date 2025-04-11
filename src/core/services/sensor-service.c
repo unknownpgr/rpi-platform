@@ -1,7 +1,8 @@
 #include <sensor-service.h>
 
-#include <unistd.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <string.h>
 
 #include <dev.h>
 #include <log.h>
@@ -25,6 +26,12 @@ typedef struct
     double offset[NUM_SENSORS];
 } calibration_data_t;
 
+typedef union
+{
+    calibration_data_t data;
+    uint8_t raw[sizeof(calibration_data_t) + 5];
+} calibration_data_union_t;
+
 static int spi_fd;
 static calibration_data_t calibration_data = {0};
 
@@ -39,12 +46,12 @@ void sensor_load_calibration()
     }
 
     // Read calibration data
-    uint8_t buf[sizeof(calibration_data_t) + 5];
-    fread(buf, sizeof(buf), 1, file);
+    calibration_data_union_t buf = {0};
+    fread(buf.raw, sizeof(buf.raw), 1, file);
     fclose(file);
 
     // Validate magic number
-    if (buf[0] != 'C' || buf[1] != 'A' || buf[2] != 'L' || buf[3] != 'I')
+    if (buf.raw[0] != 'C' || buf.raw[1] != 'A' || buf.raw[2] != 'L' || buf.raw[3] != 'I')
     {
         error("Invalid magic number. Not calibrated.");
         return;
@@ -52,18 +59,18 @@ void sensor_load_calibration()
 
     // Check checksum
     uint8_t checksum = 0;
-    for (uint8_t i = 0; i < sizeof(buf) - 1; i++)
+    for (uint32_t i = 0; i < sizeof(buf.raw) - 1; i++)
     {
-        checksum += buf[i];
+        checksum += buf.raw[i];
     }
-    if (checksum != buf[sizeof(buf) - 1])
+    if (checksum != buf.raw[sizeof(buf.raw) - 1])
     {
         error("Invalid checksum. Not calibrated.");
         return;
     }
 
     // Copy calibration data into buffer
-    memcpy(&calibration_data, &buf[4], sizeof(calibration_data_t));
+    calibration_data = buf.data;
 }
 
 void sensor_save_calibration()
@@ -75,24 +82,24 @@ void sensor_save_calibration()
         return;
     }
 
-    uint8_t buf[sizeof(calibration_data_t) + 5]; // 4 bytes for magic number, 1 byte for checksum
+    calibration_data_union_t buf = {0};
 
     // Set magic number
-    buf[0] = 'C';
-    buf[1] = 'A';
-    buf[2] = 'L';
-    buf[3] = 'I';
+    buf.raw[0] = 'C';
+    buf.raw[1] = 'A';
+    buf.raw[2] = 'L';
+    buf.raw[3] = 'I';
 
     // Copy calibration data into buffer
-    memcpy(&buf[4], &calibration_data, sizeof(calibration_data_t));
+    buf.data = calibration_data;
 
     // Calculate checksum
     uint8_t checksum = 0;
-    for (uint8_t i = 0; i < sizeof(buf) - 1; i++)
+    for (uint32_t i = 0; i < sizeof(buf.raw) - 1; i++)
     {
-        checksum += buf[i];
+        checksum += buf.raw[i];
     }
-    buf[sizeof(buf) - 1] = checksum;
+    buf.raw[sizeof(buf.raw) - 1] = checksum;
 
     // Write calibration data to file
     FILE *file = fopen(CALIBRATION_FILE, "wb");
@@ -101,7 +108,7 @@ void sensor_save_calibration()
         error("Failed to open calibration file. Calibration not saved.");
         return;
     }
-    fwrite(buf, sizeof(buf), 1, file);
+    fwrite(buf.raw, sizeof(buf.raw), 1, file);
     fclose(file);
 }
 
@@ -121,7 +128,7 @@ void sensor_init()
     sensor_load_calibration();
 }
 
-inline void sensor_select(uint8_t sensor_index)
+void sensor_select(uint8_t sensor_index)
 {
     uint8_t s0 = sensor_index & 0b0001;
     uint8_t s1 = sensor_index & 0b0010;
@@ -166,7 +173,7 @@ inline void sensor_select(uint8_t sensor_index)
     }
 }
 
-inline uint16_t sensor_read_raw(uint8_t sensor_index)
+uint16_t sensor_read_raw(uint8_t sensor_index)
 {
     uint8_t tx[] = {0 << 3, 0 << 3};
     uint8_t rx[sizeof(tx)] = {0};
@@ -229,9 +236,9 @@ void sensor_calibrate()
     while (true)
     {
         // Read sensor data
-        sensor_read(sensor_data);
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {
+            sensor_data[i] = sensor_read_raw(i);
             if (sensor_data[i] > black_max[i])
             {
                 black_max[i] = sensor_data[i];
@@ -264,9 +271,9 @@ void sensor_calibrate()
     while (true)
     {
         // Read sensor data
-        sensor_read(sensor_data);
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {
+            sensor_data[i] = sensor_read_raw(i);
             if (sensor_data[i] > white_max[i])
             {
                 white_max[i] = sensor_data[i];
@@ -302,6 +309,7 @@ void sensor_calibrate()
 
     // Save calibration data
     sensor_save_calibration();
+    print("Calibration saved");
 }
 
 bool sensor_is_calibrated()
@@ -360,9 +368,9 @@ void sensor_test_raw()
     uint16_t sensor_data[NUM_SENSORS];
     while (true)
     {
-        sensor_read(sensor_data);
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {
+            sensor_data[i] = sensor_read_raw(i);
             printf("[%02d] %4d", i, sensor_data[i]);
             sensor_print_bar((float)sensor_data[i] / 4095);
             printf("\n");
@@ -379,7 +387,10 @@ void sensor_test_calibration()
 
     while (true)
     {
-        sensor_read(sensor_data);
+        for (uint8_t i = 0; i < NUM_SENSORS; i++)
+        {
+            sensor_data[i] = sensor_read_raw(i);
+        }
         loop_counter++;
         uint32_t diff = DIFF(timer_get_ns(), start_time);
         if (diff >= 1e8) // 0.1s

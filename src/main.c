@@ -4,6 +4,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <sched.h>
+#include <string.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -178,7 +180,7 @@ void tune_collect()
     fflush(stdout);
 
     // Collect motor response of right motor
-    tune_collect_motor_response(u, v, N, DT_NS, true);
+    tune_collect_motor_response(u, v, N, DT_NS, false);
 
     // Print results for right motor
     fflush(stdout);
@@ -271,10 +273,17 @@ double line_find_position(double *sensor_values, double prev_position)
 #undef NUM_SENSORS
 }
 
+typedef struct
+{
+    bool run_program;
+} state_t;
+
+state_t state;
+
 void thread_timer(void *_)
 {
     print("Timer thread started");
-    while (true)
+    while (state.run_program)
     {
         usleep(10000); // Sleep for 10ms
         timer_update();
@@ -289,7 +298,7 @@ void thread_encoder(void *_)
     loop_t loop_encoder;
     uint32_t dt_ns;
     loop_init(&loop_encoder, 1000); // 1us
-    while (true)
+    while (state.run_program)
     {
         if (loop_update(&loop_encoder, &dt_ns))
         {
@@ -303,9 +312,9 @@ void thread_drive(void *_)
     print("Drive thread started");
     pin_thread_to_cpu(3);
 
-    tune_collect();
-    while (1)
-        ;
+    // tune_collect();
+    // while (state.run_program)
+    //     ;
 
     motor_enable(true);
     timer_sleep_ns(100000000); // 100ms
@@ -355,7 +364,7 @@ void thread_drive(void *_)
     double position = 0;
 
     uint32_t dt_ns;
-    while (true)
+    while (state.run_program)
     {
         // TODO: SPI is terribly slow. We need to optimize this.
         // About 10848 loops per second. (~11kHz)
@@ -423,7 +432,10 @@ int application_start()
     encoder_init();
     sensor_init();
     timer_init();
+
     print("Peripherals initialized");
+
+    state.run_program = true;
 
     int ret;
 
@@ -454,7 +466,70 @@ int application_start()
         return -1;
     }
 
+    // Start UI server
+    int pipe_read[2]; // [0] is read, [1] is write
+    int pipe_write[2];
+    pipe(pipe_read);
+    pipe(pipe_write);
+    fcntl(pipe_read[0], F_SETFL, 0);
+    fcntl(pipe_write[0], F_SETFL, O_NONBLOCK);
+
+    pid_t pid = fork();
+    if (pid == 0)
+    {
+        char fd_str[10];
+        sprintf(fd_str, "%d", pipe_read[1]);
+
+        // Child process
+        close(pipe_read[0]);
+        close(pipe_write[1]);
+
+        // Redirect stdin to pipe_write[0]
+        dup2(pipe_write[0], 0);
+
+        execlp("node", "node", "../src/ui/app.js", fd_str, (char *)NULL);
+        print("Failed to start UI server");
+        exit(0);
+    }
+    else
+    {
+        // Parent process
+        close(pipe_read[1]);
+        close(pipe_write[0]);
+
+        // Redirect stdout to pipe_write[1]
+        dup2(pipe_write[1], 1);
+    }
+
+    // Receive message from UI server
+    char buffer[1024];
+    uint16_t len = 0;
+    while (state.run_program)
+    {
+        // print("Waiting for message from UI server");
+        char c;
+        ssize_t bytes_read = read(pipe_read[0], &c, 1);
+        if (bytes_read == 0)
+        {
+            continue;
+        }
+
+        buffer[len++] = c;
+        if (c != '\n')
+        {
+            continue;
+        }
+        buffer[len] = '\0';
+
+        if (strcmp(buffer, "quit") == 0)
+        {
+            state.run_program = false;
+        }
+        len = 0;
+    }
+
     // Join threads
+    pthread_join(timer_thread, NULL);
     pthread_join(encoder_thread, NULL);
     pthread_join(drive_thread, NULL);
     print("All threads joined");
