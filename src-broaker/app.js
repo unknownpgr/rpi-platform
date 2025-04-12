@@ -20,12 +20,6 @@ app.get("/", (req, res) => {
   res.redirect("/index.html");
 });
 
-app.get("/command", (req, res) => {
-  const command = req.query.command;
-  fs.writeSync(pipeFd, command + "\n");
-  res.send("OK");
-});
-
 // Create HTTP server
 const server = app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
@@ -44,6 +38,11 @@ let mappingStructure = [];
 // WebSocket connection handler
 wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "log", data: inputBuffer }));
+
+  ws.on("message", (message) => {
+    const command = message.toString();
+    fs.writeSync(pipeFd, command + "\n");
+  });
 });
 
 // Redirect stdin to stdout
@@ -113,6 +112,12 @@ setInterval(() => {
         value = [];
         for (let i = 0; i < 16; i++) {
           value.push(buffer.readUInt16LE(offset + i * 2));
+        }
+        break;
+      case "double[16]":
+        value = [];
+        for (let i = 0; i < 16; i++) {
+          value.push(buffer.readDoubleLE(offset + i * 8));
         }
         break;
       default:

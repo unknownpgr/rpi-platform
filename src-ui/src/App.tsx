@@ -91,7 +91,7 @@ function Speedometer({ speed, maxSpeed }: { speed: number; maxSpeed: number }) {
 }
 
 function PositionMeter({ position }: { position: number }) {
-  const positionPercentage = position * 100;
+  const positionPercentage = position * 50 + 50;
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 items-center">
@@ -179,6 +179,7 @@ function App() {
 
   const terminalElementRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal>(null);
+  const socketRef = useRef<WebSocket>(null);
 
   useEffect(() => {
     if (terminalElementRef.current) {
@@ -195,18 +196,22 @@ function App() {
 
   useEffect(() => {
     const socket = new WebSocket("/");
+    socketRef.current = socket;
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (data.type === "state") {
-        setState(data.data);
-      } else if (data.type === "terminal") {
-        terminalRef.current?.write(data.data);
+      switch (data.type) {
+        case "state":
+          setState(data.data);
+          break;
+        case "log":
+          terminalRef.current?.write(data.data);
+          break;
       }
     };
   }, []);
 
   const sendCommand = useCallback((command: string) => {
-    fetch(`/command?command=${command}`).catch(console.error);
+    socketRef.current?.send(command);
   }, []);
 
   return (
