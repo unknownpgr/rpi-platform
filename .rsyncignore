@@ -2,5 +2,6 @@
 .vscode
 .venv
 .tmp
+scripts
 upload.sh
 README.md

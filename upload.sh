@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-. ./settings.sh
+. ./config.sh
 
 function log() {
     echo 

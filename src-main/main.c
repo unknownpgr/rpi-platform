@@ -156,7 +156,7 @@ int application_start()
         // Redirect stdin to pipe_write[0]
         dup2(pipe_write[0], 0);
 
-        execlp("node", "node", "../src/ui/app.js", fd_str, (char *)NULL);
+        execlp("node", "node", "../src-broaker/app.js", fd_str, (char *)NULL);
         print("Failed to start UI server");
         exit(0);
     }
@@ -183,6 +183,8 @@ int application_start()
     // Sensor state
     printf("state.sensor_state:%ld:sensor_state_t\n", (uint64_t)(&state->sensor_state) - base);
     printf("state.sensor_state.state:%ld:uint8_t\n", (uint64_t)(&state->sensor_state.state) - base);
+    printf("state.sensor_state.raw_data:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_state.raw_data) - base);
+    printf("state.sensor_state.sensor_data:%ld:double[16]\n", (uint64_t)(&state->sensor_state.sensor_data) - base);
     printf("state.sensor_state.calibration:%ld:calibration_t\n", (uint64_t)(&state->sensor_state.calibration) - base);
     printf("state.sensor_state.calibration.sensor_low:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_state.calibration.sensor_low) - base);
     printf("state.sensor_state.calibration.sensor_high:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_state.calibration.sensor_high) - base);

@@ -20,8 +20,8 @@ typedef struct
   uint8_t state;
   bool is_calibrated;
   uint16_t raw_data[NUM_SENSORS];
-  calibration_t calibration;
   double sensor_data[NUM_SENSORS];
+  calibration_t calibration;
   uint8_t sensor_index;
 } sensor_state_t;
 
