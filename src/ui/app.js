@@ -2,57 +2,11 @@ const express = require("express");
 const WebSocket = require("ws");
 const path = require("path");
 const fs = require("fs");
-const { off } = require("process");
 
 const sharedMemoryPath = "/dev/shm/state";
 const sharedMemorySize = 4096;
 const buffer = Buffer.alloc(sharedMemorySize);
 const sharedMemory = fs.openSync(sharedMemoryPath, "r+");
-
-function parseSharedMemory(buffer) {
-  let offset = 0;
-  const run_program = buffer.readUInt8(offset) !== 0;
-  offset += 8;
-
-  const state = buffer.readUInt8(offset);
-  offset += 1;
-
-  const is_calibrated = buffer.readUInt8(offset) !== 0;
-  offset += 1;
-
-  const sensor_values = [];
-  for (let i = 0; i < 16; i++) {
-    sensor_values.push(buffer.readUInt16LE(offset));
-    offset += 2;
-  }
-
-  const calibration = {
-    low: [],
-    high: [],
-  };
-
-  for (let i = 0; i < 16; i++) {
-    calibration.low.push(buffer.readUInt16LE(offset));
-    offset += 2;
-  }
-
-  for (let i = 0; i < 16; i++) {
-    calibration.high.push(buffer.readUInt16LE(offset));
-    offset += 2;
-  }
-
-  const battery_voltage = buffer.readDoubleLE(8);
-
-  return {
-    run_program,
-    state,
-    is_calibrated,
-    sensor_values,
-    calibration,
-    battery_voltage,
-  };
-}
-
 const pipeFd = +process.argv[2];
 
 const app = express();
@@ -80,28 +34,102 @@ const server = app.listen(port, () => {
 // Create WebSocket server
 const wss = new WebSocket.Server({ server });
 
-let logBuffer = "";
+const READ_MAPPING = 0x00;
+const FORWARD = 0x01;
+
+let state = READ_MAPPING;
+let inputBuffer = "";
+let mappingStructure = [];
 
 // WebSocket connection handler
 wss.on("connection", (ws) => {
-  ws.send(logBuffer);
-  ws.on("message", (message) => {});
-  ws.on("close", () => {
-    console.log("Client disconnected");
-  });
+  ws.send(JSON.stringify({ type: "log", data: inputBuffer }));
 });
 
 // Redirect stdin to stdout
 process.stdin.on("data", (data) => {
-  wss.clients.forEach((client) => client.send(data.toString()));
-  logBuffer += data.toString();
-  if (logBuffer.length > 1024) {
-    logBuffer = logBuffer.slice(-1024);
+  inputBuffer += data.toString();
+
+  switch (state) {
+    case READ_MAPPING:
+      const index = inputBuffer.indexOf("--------");
+      if (index !== -1) {
+        mappingStructure = inputBuffer
+          .slice(0, index)
+          .split("\n")
+          .map((x) => x.trim())
+          .filter((x) => x.length > 0)
+          .map((x) => {
+            const [key, value, type] = x.split(":");
+            return {
+              key: key.split("."),
+              offset: +value,
+              type: type,
+            };
+          });
+        inputBuffer = inputBuffer.slice(index + 9);
+        state = FORWARD;
+      }
+      break;
+    case FORWARD:
+      if (inputBuffer.length > 3000) {
+        inputBuffer = inputBuffer.slice(-3000);
+      }
+      wss.clients.forEach((client) => {
+        client.send(JSON.stringify({ type: "log", data: data.toString() }));
+      });
+      break;
   }
 });
 
 setInterval(() => {
   fs.readSync(sharedMemory, buffer, 0, sharedMemorySize, 0);
-  const state = parseSharedMemory(buffer);
-  // wss.clients.forEach((client) => client.send(JSON.stringify(state)));
+
+  const state = {};
+
+  mappingStructure.forEach((x) => {
+    const { key, offset, type } = x;
+    let value;
+    switch (type) {
+      case "uint8_t":
+        value = buffer.readUInt8(offset);
+        break;
+      case "uint16_t":
+        value = buffer.readUInt16LE(offset);
+        break;
+      case "uint32_t":
+        value = buffer.readUInt32LE(offset);
+        break;
+      case "float":
+        value = buffer.readFloatLE(offset);
+        break;
+      case "double":
+        value = buffer.readDoubleLE(offset);
+        break;
+      case "bool":
+        value = buffer.readUInt8(offset) !== 0;
+        break;
+      case "uint16_t[16]":
+        value = [];
+        for (let i = 0; i < 16; i++) {
+          value.push(buffer.readUInt16LE(offset + i * 2));
+        }
+        break;
+      default:
+        return;
+    }
+
+    let obj = state;
+    for (let i = 0; i < key.length - 1; i++) {
+      if (!obj[key[i]]) {
+        obj[key[i]] = {};
+      }
+      obj = obj[key[i]];
+    }
+    obj[key[key.length - 1]] = value;
+  });
+
+  wss.clients.forEach((client) =>
+    client.send(JSON.stringify({ type: "state", data: state }))
+  );
 }, 100);

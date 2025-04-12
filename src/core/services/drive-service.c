@@ -278,7 +278,13 @@ void drive_init(drive_state_t *state)
     drive_state->position = 0.0;
 
     // Initialize battery voltage
-    drive_state->battery_voltage = vsense_read();
+    double voltage = 0;
+    for (int i = 0; i < 50; i++)
+    {
+        voltage = voltage * 0.9 + vsense_read() * 0.1;
+        timer_sleep_ns(1000000); // 1m
+    }
+    drive_state->battery_voltage = voltage;
 
     loop_init(&drive_state->loop_motor, 1000000);    // 1ms
     loop_init(&drive_state->loop_vsense, 100000000); // 100ms
@@ -300,36 +306,6 @@ void drive_loop()
     {
         // Update vsense value with IIR filter
         drive_state->battery_voltage = drive_state->battery_voltage * 0.5 + vsense_read() * 0.5;
-        print("Battery Voltage: %f", drive_state->battery_voltage);
-        print("Position: %f", drive_state->position);
-
-        // Print all sensor values
-        for (int i = 0; i < 16; i++)
-        {
-            printf("%.2f ", sensor_state->sensor_data[i]);
-        }
-        printf("\r\n");
-
-        // Print all raw sensor values
-        for (int i = 0; i < 16; i++)
-        {
-            printf("%d ", sensor_state->raw_data[i]);
-        }
-        printf("\r\n");
-
-        // Print all low values
-        for (int i = 0; i < 16; i++)
-        {
-            printf("%d ", sensor_state->calibration.sensor_low[i]);
-        }
-        printf("\r\n");
-
-        // Print all high values
-        for (int i = 0; i < 16; i++)
-        {
-            printf("%d ", sensor_state->calibration.sensor_high[i]);
-        }
-        printf("\r\n");
     }
 
     // Motor control loop

@@ -160,6 +160,11 @@ int application_start()
         print("Failed to start UI server");
         exit(0);
     }
+    else if (pid < 0)
+    {
+        print("Error starting UI server");
+        return -1;
+    }
     else
     {
         // Parent process
@@ -169,6 +174,38 @@ int application_start()
         // Redirect stdout to pipe_write[1]
         dup2(pipe_write[1], 1);
     }
+
+    // Print all address offsets for state
+    uint64_t base = (uint64_t)state;
+
+    printf("state.state:%ld:uint8_t\n", (uint64_t)(&state->state) - base);
+
+    // Sensor state
+    printf("state.sensor_state:%ld:sensor_state_t\n", (uint64_t)(&state->sensor_state) - base);
+    printf("state.sensor_state.state:%ld:uint8_t\n", (uint64_t)(&state->sensor_state.state) - base);
+    printf("state.sensor_state.calibration:%ld:calibration_t\n", (uint64_t)(&state->sensor_state.calibration) - base);
+    printf("state.sensor_state.calibration.sensor_low:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_state.calibration.sensor_low) - base);
+    printf("state.sensor_state.calibration.sensor_high:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_state.calibration.sensor_high) - base);
+    printf("state.sensor_state.is_calibrated:%ld:bool\n", (uint64_t)(&state->sensor_state.is_calibrated) - base);
+
+    // Drive state
+    printf("state.drive_state:%ld:drive_state_t\n", (uint64_t)(&state->drive_state) - base);
+    printf("state.drive_state.pid_left:%ld:pid_t\n", (uint64_t)(&state->drive_state.pid_left) - base);
+    printf("state.drive_state.pid_right:%ld:pid_t\n", (uint64_t)(&state->drive_state.pid_right) - base);
+    printf("state.drive_state.left:%ld:int32_t\n", (uint64_t)(&state->drive_state.left) - base);
+    printf("state.drive_state.right:%ld:int32_t\n", (uint64_t)(&state->drive_state.right) - base);
+    printf("state.drive_state.left_prev:%ld:int32_t\n", (uint64_t)(&state->drive_state.left_prev) - base);
+    printf("state.drive_state.right_prev:%ld:int32_t\n", (uint64_t)(&state->drive_state.right_prev) - base);
+    printf("state.drive_state.loop_motor:%ld:loop_t\n", (uint64_t)(&state->drive_state.loop_motor) - base);
+    printf("state.drive_state.loop_vsense:%ld:loop_t\n", (uint64_t)(&state->drive_state.loop_vsense) - base);
+    printf("state.drive_state.position:%ld:double\n", (uint64_t)(&state->drive_state.position) - base);
+    printf("state.drive_state.battery_voltage:%ld:double\n", (uint64_t)(&state->drive_state.battery_voltage) - base);
+
+    // Encoder state
+    printf("state.encoder_left:%ld:int32_t\n", (uint64_t)(&state->encoder_left) - base);
+    printf("state.encoder_right:%ld:int32_t\n", (uint64_t)(&state->encoder_right) - base);
+    printf("--------\n");
+
     print("UI server started");
 
     // Initialize peripherals

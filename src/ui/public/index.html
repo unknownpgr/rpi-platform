@@ -12,6 +12,9 @@
   </head>
   <body>
     <div>
+      <pre id="state"></pre>
+    </div>
+    <div>
       <button onclick="sendCommand('cali_low')">Calibrate Low</button>
       <button onclick="sendCommand('cali_high')">Calibrate High</button>
       <button onclick="sendCommand('cali_save')">Save Calibration</button>
@@ -21,6 +24,7 @@
     </div>
     <div id="terminal"></div>
     <script>
+      const stateElement = document.getElementById("state");
       const websocket = new WebSocket("/");
       const term = new Terminal({
         cols: 120,
@@ -34,10 +38,18 @@
         fontWeightSemiBold: "semibold",
         fontWeightThin: "thin",
       });
-
       term.open(document.getElementById("terminal"));
+
+      let state = {};
+
       websocket.onmessage = (event) => {
-        term.write(event.data);
+        const data = JSON.parse(event.data);
+        if (data.type === "log") {
+          term.write(data.data);
+        } else if (data.type === "state") {
+          state = data.data;
+          stateElement.textContent = JSON.stringify(state, null, 2);
+        }
       };
       websocket.onclose = () => console.log("WebSocket closed");
       websocket.onopen = () => console.log("WebSocket opened");
