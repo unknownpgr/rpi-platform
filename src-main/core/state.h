@@ -9,6 +9,10 @@
 #define STATE_CALI_HIGH 0x03
 #define STATE_DRIVE 0x04
 
+#define TRACK_STRAIGHT 0x00
+#define TRACK_LEFT 0x01
+#define TRACK_RIGHT 0x02
+
 #define NUM_SENSORS 16
 
 typedef struct
@@ -25,6 +29,7 @@ typedef struct
   double position;
   double speed;
   double battery_voltage;
+  uint8_t track;
   int encoder_left;
   int encoder_right;
 } state_t;

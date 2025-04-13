@@ -191,7 +191,6 @@ static double line_mu(double distance)
 static double line_find_position(double *sensor_values, double prev_position)
 {
 #define NUM_CANDIDATES 1000
-#define NUM_SENSORS 16
 
     static double candidate_positions[NUM_CANDIDATES];
     static double sensor_positions[NUM_SENSORS];
@@ -267,15 +266,119 @@ static double line_find_position(double *sensor_values, double prev_position)
     return optimal_position;
 #endif
 #undef CANDIDATES
-#undef NUM_SENSORS
 }
 
-const double default_speed = 15;
-const double default_curvature = 1.5;
-const double acceleration = 20;
+#define STATE_NONE 0x00
+#define STATE_ACCUM 0x01
 
-const double v_min = 3.7 * 8;
-const double v_max = 4.2 * 8;
+#define MARK_NONE 0x00
+#define MARK_RIGHT 0x01
+#define MARK_LEFT 0x02
+#define MARK_BOTH 0x03
+#define MARK_CROSS 0x04
+
+static double mark_threshold = 0.8;
+static uint8_t mark_state = STATE_NONE;
+static bool mark_is_left = false;
+static bool mark_is_right = false;
+static bool mark_accum[NUM_SENSORS] = {false};
+static int both_count = 0;
+
+static uint8_t mark_state_machine(double *sensor_values, double position)
+{
+    static double sensor_positions[NUM_SENSORS];
+
+    // Initialize candidate positions and sensor positions
+    static bool is_initialized = false;
+    if (!is_initialized)
+    {
+        for (int i = 0; i < NUM_SENSORS; i++)
+        {
+            sensor_positions[i] = i * 2.0 / (NUM_SENSORS - 1) - 1.0;
+        }
+        is_initialized = true;
+    }
+
+    bool current_left = false;
+    bool current_right = false;
+
+    for (int i = 0; i < NUM_SENSORS; i++)
+    {
+        bool b = sensor_values[i] > mark_threshold;
+        if (b)
+        {
+            mark_accum[i] = true;
+            if (sensor_positions[i] < position - 0.25)
+            {
+                current_left = true;
+                mark_is_left = true;
+            }
+            else if (sensor_positions[i] > position + 0.25)
+            {
+                current_right = true;
+                mark_is_right = true;
+            }
+        }
+    }
+
+    switch (mark_state)
+    {
+    case STATE_NONE:
+        if (current_left || current_right)
+        {
+            mark_state = STATE_ACCUM;
+        }
+        else
+        {
+            for (int i = 0; i < NUM_SENSORS; i++)
+            {
+                mark_accum[i] = false;
+            }
+            mark_is_left = false;
+            mark_is_right = false;
+        }
+        break;
+    case STATE_ACCUM:
+        if (!current_left && !current_right)
+        {
+            mark_state = STATE_NONE;
+            int count = 0;
+            for (int i = 0; i < NUM_SENSORS; i++)
+            {
+                if (mark_accum[i])
+                {
+                    count++;
+                }
+            }
+            if (count == NUM_SENSORS)
+            {
+                return MARK_CROSS;
+            }
+            if (mark_is_left && mark_is_right)
+            {
+                return MARK_BOTH;
+            }
+            else if (mark_is_left)
+            {
+                return MARK_LEFT;
+            }
+            else if (mark_is_right)
+            {
+                return MARK_RIGHT;
+            }
+        }
+        break;
+    }
+
+    return MARK_NONE;
+}
+
+static double default_speed = 15;
+static double default_curvature = 1.5;
+static double acceleration = 20;
+
+static double v_min = 3.7 * 8;
+static double v_max = 4.2 * 8;
 
 int32_t encoer_left_prev;
 int32_t encoder_right_prev;
@@ -286,6 +389,10 @@ loop_t loop_vsense;
 
 void drive_init()
 {
+    default_speed = 15;
+    default_curvature = 1.5;
+    acceleration = 20;
+
     pid_init(&pid_left);
     pid_init(&pid_right);
 
@@ -298,8 +405,19 @@ void drive_init()
     // Initialize encoder values
     encoer_left_prev = state->encoder_left;
     encoder_right_prev = state->encoder_right;
+
+    // Initialize state
     state->position = 0.0;
     state->speed = 0.0;
+    state->track = TRACK_STRAIGHT;
+
+    // Initialize mark state
+    mark_state = STATE_NONE;
+    both_count = 0;
+    for (int i = 0; i < NUM_SENSORS; i++)
+    {
+        mark_accum[i] = false;
+    }
 
     // Initialize battery voltage
     double voltage = 0;
@@ -323,6 +441,31 @@ void drive_loop()
     uint32_t dt_ns;
 
     state->position = line_find_position(state->sensor_data, state->position);
+    uint8_t mark = mark_state_machine(state->sensor_data, state->position);
+
+    switch (mark)
+    {
+    case MARK_LEFT:
+        print("MARK_LEFT");
+        break;
+    case MARK_RIGHT:
+        print("MARK_RIGHT");
+        break;
+    case MARK_BOTH:
+        print("MARK_BOTH");
+        both_count++;
+
+        if (both_count == 2)
+        {
+            default_speed = 0;
+            acceleration = 40;
+        }
+
+        break;
+    case MARK_CROSS:
+        print("MARK_CROSS");
+        break;
+    }
 
     // VSense loop
     if (loop_update(&loop_vsense, &dt_ns))
