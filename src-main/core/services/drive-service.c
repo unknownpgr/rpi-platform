@@ -225,7 +225,7 @@ static double line_find_position(double *sensor_values, double prev_position)
 
         // Set the prior
         double tmp = candidate_position - prev_position;
-        likelihood += ABS(tmp) * 4;
+        likelihood += tmp * tmp;
 
         // Add evidence
         for (int j = 0; j < NUM_SENSORS; j++)
@@ -250,8 +250,9 @@ static double line_find_position(double *sensor_values, double prev_position)
 #undef NUM_SENSORS
 }
 
-const float default_speed = 5;
-const float default_curvature = 3.5;
+const double default_speed = 5;
+const double default_curvature = 3.5;
+const double acceleration = 1;
 
 const double v_min = 3.7 * 8;
 const double v_max = 4.2 * 8;
@@ -276,6 +277,7 @@ void drive_init(drive_state_t *state)
     drive_state->left_prev = drive_state->left;
     drive_state->right_prev = drive_state->right;
     drive_state->position = 0.0;
+    drive_state->speed = 0.0;
 
     // Initialize battery voltage
     double voltage = 0;
@@ -315,8 +317,26 @@ void drive_loop()
         double dt = dt_ns / 1e9;
 
         // Update PID targets based on position
-        drive_state->pid_left.target = -default_speed * (1.0 + drive_state->position * default_curvature);
-        drive_state->pid_right.target = default_speed * (1.0 - drive_state->position * default_curvature);
+        drive_state->pid_left.target = -drive_state->speed * (1.0 + drive_state->position * default_curvature);
+        drive_state->pid_right.target = drive_state->speed * (1.0 - drive_state->position * default_curvature);
+
+        // Update speed
+        if (drive_state->speed < default_speed)
+        {
+            drive_state->speed += acceleration * dt;
+            if (drive_state->speed > default_speed)
+            {
+                drive_state->speed = default_speed;
+            }
+        }
+        else if (drive_state->speed > default_speed)
+        {
+            drive_state->speed -= acceleration * dt;
+            if (drive_state->speed < default_speed)
+            {
+                drive_state->speed = default_speed;
+            }
+        }
 
         // Calculate speed
         encoder_get_counts(&drive_state->left, &drive_state->right);

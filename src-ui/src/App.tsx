@@ -16,7 +16,7 @@ function SensorDataRow({
   raw: number;
   data: number;
 }) {
-  const max = 1024;
+  const max = 4096;
   const lowPosition = (low / max) * 100;
   const highPosition = (high / max) * 100;
   const rawPosition = (raw / max) * 100;
@@ -105,7 +105,7 @@ function PositionMeter({ position }: { position: number }) {
           }}></div>
       </div>
       <div className="text-white text-2xl font-bold text-center">
-        {position}
+        {position.toFixed(2)}
       </div>
     </div>
   );
@@ -131,7 +131,7 @@ function BatteryMeter({ voltage }: { voltage: number }) {
   return (
     <div>
       <div className="flex flex-row items-center justify-center gap-4 items-center">
-        <div className="flex flex-col items-center justify-center gap-1">
+        <div className="flex flex-col items-center justify-center gap-1 w-0 grow-1">
           <div className="text-white text-2xl font-bold text-center">
             {voltage.toFixed(2)}V
           </div>
@@ -146,7 +146,7 @@ function BatteryMeter({ voltage }: { voltage: number }) {
               width: `${voltagePercentage}%`,
             }}></div>
         </div>
-        <div className="text-white text-2xl font-bold text-center">
+        <div className="text-white text-2xl font-bold text-center w-0 grow-1">
           {Math.round(voltagePercentage)}%
         </div>
       </div>
@@ -179,6 +179,7 @@ function App() {
       terminalRef.current = terminal;
 
       const removeListener = server.addListener((event) => {
+        console.log(event);
         if (event.type === "input") terminal.write(event.data);
       });
 
@@ -293,7 +294,7 @@ function App() {
           </div>
         </Card>
         <Card title="Drive State">
-          <Speedometer speed={state.drive_state.speed} maxSpeed={100} />
+          <Speedometer speed={state.drive_state.speed} maxSpeed={10} />
           <br />
           <PositionMeter position={state.drive_state.position} />
         </Card>

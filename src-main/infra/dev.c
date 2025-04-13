@@ -269,7 +269,8 @@ void dev_gpio_set_mode(uint32_t pin, uint32_t mode)
     uint32_t shift = (pin % 10) * 3;
     uint32_t mask = 0b111 << shift;
     uint32_t *reg = gpio_base + GPIO_FSEL_OFFSET / 4 + index;
-    *reg = (*reg & ~mask) | ((mode << shift) & mask);
+    *reg &= ~mask;
+    *reg |= (mode << shift);
 }
 
 void dev_gpio_set_pull(uint32_t pin, uint32_t pull)

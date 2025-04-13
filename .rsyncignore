@@ -2,6 +2,7 @@
 .vscode
 .venv
 .tmp
+src-ui/node_modules
 scripts
 upload.sh
 README.md

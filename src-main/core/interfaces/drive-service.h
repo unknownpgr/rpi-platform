@@ -24,6 +24,7 @@ typedef struct
   loop_t loop_motor;
   loop_t loop_vsense;
   double position;
+  double speed;
   double battery_voltage;
 } drive_state_t;
 

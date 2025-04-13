@@ -29,6 +29,7 @@ export class Server {
 
   private connectionStatus: ConnectionStatus = "connecting";
   private serverStatus: ServerStatus = "INITIALIZING";
+  private inputs: ServerEvent[] = [];
 
   private state: RobotState = {
     state: RobotStatus.IDLE,
@@ -68,18 +69,21 @@ export class Server {
 
   private handleWebSocketMessage(event: MessageEvent<any>) {
     const data = JSON.parse(event.data);
-
     switch (data.type) {
       case "status":
         this.serverStatus = data.data;
         this.notify({ type: "serverStatus", data: this.serverStatus });
         break;
       case "state":
-        this.state = data.data;
+        this.state = data.data.state;
         this.notify({ type: "state", data: this.state });
         break;
       case "input":
+        this.inputs.push({ type: "input", data: data.data });
         this.notify({ type: "input", data: data.data });
+        break;
+      default:
+        console.log("Unknown message type:", data.type);
         break;
     }
   }
@@ -97,6 +101,7 @@ export class Server {
 
   public addListener(listener: (data: ServerEvent) => void) {
     this.listeners.push(listener);
+    this.inputs.forEach((input) => listener(input));
     return () => {
       this.listeners.filter((l) => l !== listener);
     };

@@ -1,4 +1,4 @@
-const fs = require("fs/promises");
+const fs = require("fs");
 
 const sharedMemoryPath = "/dev/shm/state";
 const sharedMemorySize = 4096;
@@ -20,13 +20,13 @@ class Robot {
     this.initialize();
   }
 
-  async initialize() {
+  initialize() {
     // Configure stdin handler
     process.stdin.on("data", (data) => this.handleInput(data.toString()));
 
     // Connect to shared memory
     try {
-      this.shmFd = await fs.open(sharedMemoryPath, "r+");
+      this.shmFd = fs.openSync(sharedMemoryPath, "r+");
     } catch (err) {
       if (err.code === "ENOENT") {
         this.status = STATUS_ERROR;
@@ -85,9 +85,9 @@ class Robot {
     }
   }
 
-  async handleStateChange() {
+  handleStateChange() {
     const newBuffer = Buffer.alloc(sharedMemorySize);
-    await this.shmFd.read(newBuffer, 0, sharedMemorySize, 0);
+    fs.readSync(this.shmFd, newBuffer, 0, sharedMemorySize, 0);
 
     // Check if the buffer has changed
     if (newBuffer.equals(this.shmBuffer)) return;

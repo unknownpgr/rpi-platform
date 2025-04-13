@@ -1,6 +1,7 @@
 #include <imu-service.h>
 
 #include <dev.h>
+#include <log.h>
 
 #define ICM42067_ADDR 0x68
 #define ICM42067_WHOAMI 0x75
@@ -30,13 +31,13 @@ void imu_init()
         uint8_t whoami;
         if (!dev_i2c_read_register(ICM42067_ADDR, ICM42067_WHOAMI, &whoami, 1))
         {
-            perror("Failed to read ICM-42607 WHOAMI register");
+            error("Failed to read ICM-42607 WHOAMI register");
             return;
         }
 
         if (whoami != ICM42067_WHOAMI_VAL)
         {
-            perror("ICM-42607 WHOAMI mismatch: 0x%02X, expected: 0x%02X", whoami, ICM42067_WHOAMI_VAL);
+            error("ICM-42607 WHOAMI mismatch: 0x%02X, expected: 0x%02X", whoami, ICM42067_WHOAMI_VAL);
             return;
         }
 
@@ -46,7 +47,7 @@ void imu_init()
         pwr_mgmt |= 0b11 << 0; // Accelerometer in low noise mode
         if (!dev_i2c_write_register(ICM42067_ADDR, ICM42067_PWR_MGMT, &pwr_mgmt, 1))
         {
-            perror("Failed to write ICM-42607 PWR_MGMT register");
+            error("Failed to write ICM-42607 PWR_MGMT register");
             return;
         }
     }
@@ -57,7 +58,7 @@ void imu_init()
         uint8_t reset = 1 << 7 || 1 << 1;
         if (!dev_i2c_write_register(BMM150_ADDR, BMM150_PWR_CNTL_1, &reset, 1))
         {
-            perror("Failed to write BMM150 PWR_CNTL_2 register");
+            error("Failed to write BMM150 PWR_CNTL_2 register");
             return;
         }
 
@@ -65,7 +66,7 @@ void imu_init()
         uint8_t pwr1 = 0x01;
         if (!dev_i2c_write_register(BMM150_ADDR, BMM150_PWR_CNTL_1, &pwr1, 1))
         {
-            perror("Failed to write BMM150 PWR_CNTL_1 register");
+            error("Failed to write BMM150 PWR_CNTL_1 register");
             return;
         }
 
@@ -73,7 +74,7 @@ void imu_init()
         uint8_t pwr2 = 0x00;
         if (!dev_i2c_write_register(BMM150_ADDR, BMM150_PWR_CNTL_2, &pwr2, 1))
         {
-            perror("Failed to write BMM150 PWR_CNTL_2 register");
+            error("Failed to write BMM150 PWR_CNTL_2 register");
             return;
         }
     }
@@ -84,7 +85,7 @@ void imu_read(imu_data_t *data)
     uint8_t buf[12];
     if (!dev_i2c_read_register(ICM42067_ADDR, ICM42067_DATA, buf, 12))
     {
-        perror("Failed to read ICM-42607 accelerometer data");
+        error("Failed to read ICM-42607 accelerometer data");
         return;
     }
 
@@ -108,7 +109,7 @@ void imu_read_geomagnetic(imu_geomagnetic_t *data)
     uint8_t buf[8];
     if (!dev_i2c_read_register(BMM150_ADDR, BMM150_DATA, buf, 8))
     {
-        perror("Failed to read BMM150 geomagnetic data");
+        error("Failed to read BMM150 geomagnetic data");
         return;
     }
 

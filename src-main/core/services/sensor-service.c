@@ -238,11 +238,9 @@ void sensor_read_one()
 
 void sensor_loop()
 {
+    sensor_read_one(sensor_state->sensor_data);
     switch (sensor_state->state)
     {
-    case STATE_READING:
-        sensor_read_one(sensor_state->sensor_data);
-        break;
     case STATE_CALI_LOW:
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {

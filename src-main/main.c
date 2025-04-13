@@ -97,6 +97,7 @@ void thread_drive(void *_)
         switch (state->state)
         {
         case STATE_IDLE:
+            sensor_loop();
             break;
 
         case STATE_CALI:
@@ -201,6 +202,7 @@ int application_start()
     printf("state.drive_state.loop_motor:%ld:loop_t\n", (uint64_t)(&state->drive_state.loop_motor) - base);
     printf("state.drive_state.loop_vsense:%ld:loop_t\n", (uint64_t)(&state->drive_state.loop_vsense) - base);
     printf("state.drive_state.position:%ld:double\n", (uint64_t)(&state->drive_state.position) - base);
+    printf("state.drive_state.speed:%ld:double\n", (uint64_t)(&state->drive_state.speed) - base);
     printf("state.drive_state.battery_voltage:%ld:double\n", (uint64_t)(&state->drive_state.battery_voltage) - base);
 
     // Encoder state
