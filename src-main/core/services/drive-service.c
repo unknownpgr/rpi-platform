@@ -271,8 +271,8 @@ static double line_find_position(double *sensor_values, double prev_position)
 }
 
 const double default_speed = 15;
-const double default_curvature = 3.5;
-const double acceleration = 5;
+const double default_curvature = 1.5;
+const double acceleration = 20;
 
 const double v_min = 3.7 * 8;
 const double v_max = 4.2 * 8;
