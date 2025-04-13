@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Card } from "./Card";
-import { Button } from "./core/Button";
-import { RobotState, RobotStatus, SensorStatus } from "./core/types";
 import { Terminal } from "@xterm/xterm";
-
+import { useEffect, useRef } from "react";
+import { Button } from "./Button";
+import { Card } from "./Card";
+import { Server } from "./core/server";
+import { RobotStatus, SensorStatus } from "./core/types";
+import { useServer } from "./useServer";
 function SensorDataRow({
   low,
   high,
@@ -157,29 +158,15 @@ function BatteryMeter({ voltage }: { voltage: number }) {
   );
 }
 
+const server = new Server();
+
 function App() {
-  const [state, setState] = useState<RobotState>({
-    state: RobotStatus.IDLE,
-    sensor_state: {
-      state: 0,
-      raw_data: Array(16).fill(0),
-      sensor_data: Array(16).fill(0),
-      calibration: {
-        sensor_low: Array(16).fill(0),
-        sensor_high: Array(16).fill(0),
-      },
-      is_calibrated: false,
-    },
-    drive_state: {
-      position: 0,
-      speed: 0,
-      battery_voltage: 0,
-    },
-  });
+  useServer(server);
+
+  const state = server.getState();
 
   const terminalElementRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal>(null);
-  const socketRef = useRef<WebSocket>(null);
 
   useEffect(() => {
     if (terminalElementRef.current) {
@@ -190,29 +177,56 @@ function App() {
       });
       terminal.open(terminalElementRef.current);
       terminalRef.current = terminal;
-      return () => terminal.dispose();
+
+      const removeListener = server.addListener((event) => {
+        if (event.type === "input") terminal.write(event.data);
+      });
+
+      return () => {
+        removeListener();
+        terminal.dispose();
+      };
     }
   }, []);
 
-  useEffect(() => {
-    const socket = new WebSocket("/");
-    socketRef.current = socket;
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      switch (data.type) {
-        case "state":
-          setState(data.data);
-          break;
-        case "log":
-          terminalRef.current?.write(data.data);
-          break;
-      }
-    };
-  }, []);
+  if (server.getConnectionStatus() === "connecting") {
+    return (
+      <div className="p-10 container mx-auto">
+        <h1 className="text-xl font-bold text-white mb-4">
+          RPi-Platform Dashboard
+        </h1>
+        <div className="text-white text-2xl font-bold">
+          Connecting to server...
+        </div>
+      </div>
+    );
+  }
 
-  const sendCommand = useCallback((command: string) => {
-    socketRef.current?.send(command);
-  }, []);
+  if (server.getServerStatus() === "INITIALIZING") {
+    return (
+      <div className="p-10 container mx-auto">
+        <h1 className="text-xl font-bold text-white mb-4">
+          RPi-Platform Dashboard
+        </h1>
+        <div className="text-white text-2xl font-bold">
+          Server is initializing...
+        </div>
+      </div>
+    );
+  }
+
+  if (server.getServerStatus() === "ERROR") {
+    return (
+      <div className="p-10 container mx-auto">
+        <h1 className="text-xl font-bold text-white mb-4">
+          RPi-Platform Dashboard
+        </h1>
+        <div className="text-white text-2xl font-bold">
+          Server is in error state.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-10 container mx-auto">
@@ -228,7 +242,7 @@ function App() {
         <Card title="Control">
           <div className="flex flex-wrap gap-2">
             <Button
-              onClick={() => sendCommand("idle")}
+              onClick={() => server.sendCommand("idle")}
               variant={
                 state.state === RobotStatus.IDLE ? "activated" : "default"
               }>
@@ -240,7 +254,7 @@ function App() {
                   ? "activated"
                   : "default"
               }
-              onClick={() => sendCommand("cali_low")}>
+              onClick={() => server.sendCommand("cali_low")}>
               CALIBRATE_LOW
             </Button>
             <Button
@@ -249,20 +263,20 @@ function App() {
                   ? "activated"
                   : "default"
               }
-              onClick={() => sendCommand("cali_high")}>
+              onClick={() => server.sendCommand("cali_high")}>
               CALIBRATE_HIGH
             </Button>
-            <Button onClick={() => sendCommand("cali_save")}>
+            <Button onClick={() => server.sendCommand("cali_save")}>
               SAVE_CALIBRATION
             </Button>
             <Button
               variant={
                 state.state === RobotStatus.DRIVING ? "activated" : "default"
               }
-              onClick={() => sendCommand("drive")}>
+              onClick={() => server.sendCommand("drive")}>
               DRIVE
             </Button>
-            <Button onClick={() => sendCommand("quit")}>QUIT</Button>
+            <Button onClick={() => server.sendCommand("quit")}>QUIT</Button>
           </div>
         </Card>
         <Card title="Sensor Data">

@@ -1,140 +1,43 @@
+#!/usr/bin/env node
+
+const path = require("path");
 const express = require("express");
 const WebSocket = require("ws");
-const path = require("path");
-const fs = require("fs");
+const Robot = require("./robot");
 
-const sharedMemoryPath = "/dev/shm/state";
-const sharedMemorySize = 4096;
-const buffer = Buffer.alloc(sharedMemorySize);
-const sharedMemory = fs.openSync(sharedMemoryPath, "r+");
-const pipeFd = +process.argv[2];
-
+const PORT = 80;
+const UI_PATH = path.join(__dirname, "..", "src-ui", "dist");
 const app = express();
-const port = 80;
 
 // Serve static files from public directory
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(UI_PATH));
 
-// Redirect `/` to `/index.html`
-app.get("/", (req, res) => {
-  res.redirect("/index.html");
+// Fallback to index.html
+app.get("{*_}", (req, res) => {
+  res.sendFile(path.join(UI_PATH, "index.html"));
 });
 
 // Create HTTP server
-const server = app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+const server = app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
 });
 
-// Create WebSocket server
+// Create WebSocket server and robot
 const wss = new WebSocket.Server({ server });
+const robot = new Robot();
 
-const READ_MAPPING = 0x00;
-const FORWARD = 0x01;
-
-let state = READ_MAPPING;
-let inputBuffer = "";
-let mappingStructure = [];
-
-// WebSocket connection handler
+// Setup event handlers
 wss.on("connection", (ws) => {
-  ws.send(JSON.stringify({ type: "log", data: inputBuffer }));
-
-  ws.on("message", (message) => {
-    const command = message.toString();
-    fs.writeSync(pipeFd, command + "\n");
-  });
-});
-
-// Redirect stdin to stdout
-process.stdin.on("data", (data) => {
-  inputBuffer += data.toString();
-
-  switch (state) {
-    case READ_MAPPING:
-      const index = inputBuffer.indexOf("--------");
-      if (index !== -1) {
-        mappingStructure = inputBuffer
-          .slice(0, index)
-          .split("\n")
-          .map((x) => x.trim())
-          .filter((x) => x.length > 0)
-          .map((x) => {
-            const [key, value, type] = x.split(":");
-            return {
-              key: key.split("."),
-              offset: +value,
-              type: type,
-            };
-          });
-        inputBuffer = inputBuffer.slice(index + 9);
-        state = FORWARD;
-      }
-      break;
-    case FORWARD:
-      if (inputBuffer.length > 3000) {
-        inputBuffer = inputBuffer.slice(-3000);
-      }
-      wss.clients.forEach((client) => {
-        client.send(JSON.stringify({ type: "log", data: data.toString() }));
-      });
-      break;
+  function handleRobotEvent(event) {
+    ws.send(JSON.stringify(event));
   }
+
+  function handleWebSocketMessage(message) {
+    const command = message.toString();
+    robot.sendCommand(command);
+  }
+
+  robot.addListener(handleRobotEvent);
+  ws.on("message", handleWebSocketMessage);
+  ws.on("close", () => robot.removeListener(handleRobotEvent));
 });
-
-setInterval(() => {
-  fs.readSync(sharedMemory, buffer, 0, sharedMemorySize, 0);
-
-  const state = {};
-
-  mappingStructure.forEach((x) => {
-    const { key, offset, type } = x;
-    let value;
-    switch (type) {
-      case "uint8_t":
-        value = buffer.readUInt8(offset);
-        break;
-      case "uint16_t":
-        value = buffer.readUInt16LE(offset);
-        break;
-      case "uint32_t":
-        value = buffer.readUInt32LE(offset);
-        break;
-      case "float":
-        value = buffer.readFloatLE(offset);
-        break;
-      case "double":
-        value = buffer.readDoubleLE(offset);
-        break;
-      case "bool":
-        value = buffer.readUInt8(offset) !== 0;
-        break;
-      case "uint16_t[16]":
-        value = [];
-        for (let i = 0; i < 16; i++) {
-          value.push(buffer.readUInt16LE(offset + i * 2));
-        }
-        break;
-      case "double[16]":
-        value = [];
-        for (let i = 0; i < 16; i++) {
-          value.push(buffer.readDoubleLE(offset + i * 8));
-        }
-        break;
-      default:
-        return;
-    }
-
-    let obj = state;
-    for (let i = 0; i < key.length - 1; i++) {
-      if (!obj[key[i]]) {
-        obj[key[i]] = {};
-      }
-      obj = obj[key[i]];
-    }
-    obj[key[key.length - 1]] = value;
-  });
-
-  wss.clients.forEach((client) =>
-    client.send(JSON.stringify({ type: "state", data: state }))
-  );
-}, 100);
