@@ -10,6 +10,16 @@
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
+typedef struct
+{
+    double kP;
+    double kI;
+    double kD;
+    double target;
+    double error_prev;
+    double error_accum;
+} pid_control_t;
+
 static void pid_init(pid_control_t *pid)
 {
     pid->kP = 0.0;
@@ -201,7 +211,7 @@ static double line_find_position(double *sensor_values, double prev_position)
         is_initialized = true;
     }
 
-#define WEIGHTED_SUM_NO
+#define WEIGHTED_SUM
 
 #ifdef WEIGHTED_SUM
     double weighted_sum = 0;
@@ -209,9 +219,19 @@ static double line_find_position(double *sensor_values, double prev_position)
     for (int i = 0; i < NUM_SENSORS; i++)
     {
         double weight = sensor_values[i];
+        if (ABS(sensor_positions[i] - prev_position) > 0.3)
+        {
+            weight = 0;
+        }
         weighted_sum += weight * sensor_positions[i];
         weight_sum += weight;
     }
+
+    if (weight_sum == 0)
+    {
+        return prev_position;
+    }
+
     double expected_position = weighted_sum / weight_sum;
     return expected_position;
 #else
@@ -225,7 +245,7 @@ static double line_find_position(double *sensor_values, double prev_position)
 
         // Set the prior
         double tmp = candidate_position - prev_position;
-        likelihood += tmp * tmp;
+        likelihood += 4 * tmp * tmp;
 
         // Add evidence
         for (int j = 0; j < NUM_SENSORS; j++)
@@ -250,34 +270,36 @@ static double line_find_position(double *sensor_values, double prev_position)
 #undef NUM_SENSORS
 }
 
-const double default_speed = 5;
+const double default_speed = 15;
 const double default_curvature = 3.5;
-const double acceleration = 1;
+const double acceleration = 5;
 
 const double v_min = 3.7 * 8;
 const double v_max = 4.2 * 8;
 
-static drive_state_t *drive_state;
+int32_t encoer_left_prev;
+int32_t encoder_right_prev;
+pid_control_t pid_left;
+pid_control_t pid_right;
+loop_t loop_motor;
+loop_t loop_vsense;
 
-void drive_init(drive_state_t *state)
+void drive_init()
 {
-    drive_state = state;
+    pid_init(&pid_left);
+    pid_init(&pid_right);
 
-    pid_init(&drive_state->pid_left);
-    pid_init(&drive_state->pid_right);
+    pid_left.kP = 3.0;
+    pid_right.kP = 3.0;
 
-    drive_state->pid_left.kP = 3.0;
-    drive_state->pid_right.kP = 3.0;
-
-    drive_state->pid_left.kI = 100.0;
-    drive_state->pid_right.kI = 100.0;
+    pid_left.kI = 100.0;
+    pid_right.kI = 100.0;
 
     // Initialize encoder values
-    encoder_get_counts(&drive_state->left, &drive_state->right);
-    drive_state->left_prev = drive_state->left;
-    drive_state->right_prev = drive_state->right;
-    drive_state->position = 0.0;
-    drive_state->speed = 0.0;
+    encoer_left_prev = state->encoder_left;
+    encoder_right_prev = state->encoder_right;
+    state->position = 0.0;
+    state->speed = 0.0;
 
     // Initialize battery voltage
     double voltage = 0;
@@ -286,74 +308,72 @@ void drive_init(drive_state_t *state)
         voltage = voltage * 0.9 + vsense_read() * 0.1;
         timer_sleep_ns(1000000); // 1m
     }
-    drive_state->battery_voltage = voltage;
+    state->battery_voltage = voltage;
 
-    loop_init(&drive_state->loop_motor, 1000000);    // 1ms
-    loop_init(&drive_state->loop_vsense, 100000000); // 100ms
+    loop_init(&loop_motor, 1000000);    // 1ms
+    loop_init(&loop_vsense, 100000000); // 100ms
 
+    motor_set_velocity(0, 0);
     motor_enable(true);
     timer_sleep_ns(100000000); // 100ms
 }
-
-int counter = 0;
 
 void drive_loop()
 {
     uint32_t dt_ns;
 
-    drive_state->position = line_find_position(sensor_state->sensor_data, drive_state->position);
+    state->position = line_find_position(state->sensor_data, state->position);
 
     // VSense loop
-    if (loop_update(&drive_state->loop_vsense, &dt_ns))
+    if (loop_update(&loop_vsense, &dt_ns))
     {
         // Update vsense value with IIR filter
-        drive_state->battery_voltage = drive_state->battery_voltage * 0.5 + vsense_read() * 0.5;
+        state->battery_voltage = state->battery_voltage * 0.5 + vsense_read() * 0.5;
     }
 
     // Motor control loop
-    if (loop_update(&drive_state->loop_motor, &dt_ns))
+    if (loop_update(&loop_motor, &dt_ns) && state->state == STATE_DRIVE)
     {
         // Get dt (loop may not run at constant rate)
         double dt = dt_ns / 1e9;
 
         // Update PID targets based on position
-        drive_state->pid_left.target = -drive_state->speed * (1.0 + drive_state->position * default_curvature);
-        drive_state->pid_right.target = drive_state->speed * (1.0 - drive_state->position * default_curvature);
+        pid_left.target = -state->speed * (1.0 + state->position * default_curvature);
+        pid_right.target = state->speed * (1.0 - state->position * default_curvature);
 
         // Update speed
-        if (drive_state->speed < default_speed)
+        if (state->speed < default_speed)
         {
-            drive_state->speed += acceleration * dt;
-            if (drive_state->speed > default_speed)
+            state->speed += acceleration * dt;
+            if (state->speed > default_speed)
             {
-                drive_state->speed = default_speed;
+                state->speed = default_speed;
             }
         }
-        else if (drive_state->speed > default_speed)
+        else if (state->speed > default_speed)
         {
-            drive_state->speed -= acceleration * dt;
-            if (drive_state->speed < default_speed)
+            state->speed -= acceleration * dt;
+            if (state->speed < default_speed)
             {
-                drive_state->speed = default_speed;
+                state->speed = default_speed;
             }
         }
 
         // Calculate speed
-        encoder_get_counts(&drive_state->left, &drive_state->right);
-        double speed_left = (drive_state->left - drive_state->left_prev) / 4096.0 / dt;
-        double speed_right = (drive_state->right - drive_state->right_prev) / 4096.0 / dt;
+        double speed_left = (state->encoder_left - encoer_left_prev) / 4096.0 / dt;
+        double speed_right = (state->encoder_right - encoder_right_prev) / 4096.0 / dt;
 
         // Update previous encoder value
-        drive_state->left_prev = drive_state->left;
-        drive_state->right_prev = drive_state->right;
+        encoer_left_prev = state->encoder_left;
+        encoder_right_prev = state->encoder_right;
 
         // Calculate PID
-        double pid_left_output = pid_update(&drive_state->pid_left, speed_left, dt);
-        double pid_right_output = pid_update(&drive_state->pid_right, speed_right, dt);
+        double pid_left_output = pid_update(&pid_left, speed_left, dt);
+        double pid_right_output = pid_update(&pid_right, speed_right, dt);
 
         // Update motor speed
-        double motor_left_output = pid_left_output / drive_state->battery_voltage;
-        double motor_right_output = pid_right_output / drive_state->battery_voltage;
+        double motor_left_output = pid_left_output / state->battery_voltage;
+        double motor_right_output = pid_right_output / state->battery_voltage;
 
         motor_set_velocity(motor_left_output, motor_right_output);
     }

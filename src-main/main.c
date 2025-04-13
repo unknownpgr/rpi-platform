@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <main.h>
+#include <state.h>
 
 #include <math.h>
 #include <stdio.h>
@@ -35,22 +36,8 @@ void pin_thread_to_cpu(int cpu)
     pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
 }
 
-#define STATE_EXIT 0x00
-#define STATE_IDLE 0x01
-#define STATE_CALI 0x02
-#define STATE_DRIV 0x03
-
 #define SHM_NAME "/state"
 #define SHM_SIZE 4096
-
-typedef struct
-{
-    uint8_t state;
-    sensor_state_t sensor_state;
-    drive_state_t drive_state;
-    int encoder_left;
-    int encoder_right;
-} state_t;
 
 state_t *state;
 
@@ -85,33 +72,13 @@ void thread_encoder(void *_)
 void thread_drive(void *_)
 {
     pin_thread_to_cpu(3);
-
     while (state->state != STATE_EXIT)
     {
         // TODO: SPI is terribly slow. We need to optimize this.
         // About 10848 loops per second. (~11kHz)
         // Much lower then I expected. (~100kHz)
-
-        // Read sensor values
-
-        switch (state->state)
-        {
-        case STATE_IDLE:
-            sensor_loop();
-            break;
-
-        case STATE_CALI:
-            sensor_loop();
-            break;
-
-        case STATE_DRIV:
-            sensor_loop();
-            drive_loop();
-            break;
-
-        default:
-            break;
-        }
+        sensor_loop();
+        drive_loop();
     }
 }
 
@@ -181,29 +148,16 @@ int application_start()
 
     printf("state.state:%ld:uint8_t\n", (uint64_t)(&state->state) - base);
 
-    // Sensor state
-    printf("state.sensor_state:%ld:sensor_state_t\n", (uint64_t)(&state->sensor_state) - base);
-    printf("state.sensor_state.state:%ld:uint8_t\n", (uint64_t)(&state->sensor_state.state) - base);
-    printf("state.sensor_state.raw_data:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_state.raw_data) - base);
-    printf("state.sensor_state.sensor_data:%ld:double[16]\n", (uint64_t)(&state->sensor_state.sensor_data) - base);
-    printf("state.sensor_state.calibration:%ld:calibration_t\n", (uint64_t)(&state->sensor_state.calibration) - base);
-    printf("state.sensor_state.calibration.sensor_low:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_state.calibration.sensor_low) - base);
-    printf("state.sensor_state.calibration.sensor_high:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_state.calibration.sensor_high) - base);
-    printf("state.sensor_state.is_calibrated:%ld:bool\n", (uint64_t)(&state->sensor_state.is_calibrated) - base);
+    // Sensor related
+    printf("state.sensor_low:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_low) - base);
+    printf("state.sensor_high:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_high) - base);
+    printf("state.sensor_raw:%ld:uint16_t[16]\n", (uint64_t)(&state->sensor_raw) - base);
+    printf("state.sensor_data:%ld:double[16]\n", (uint64_t)(&state->sensor_data) - base);
 
-    // Drive state
-    printf("state.drive_state:%ld:drive_state_t\n", (uint64_t)(&state->drive_state) - base);
-    printf("state.drive_state.pid_left:%ld:pid_t\n", (uint64_t)(&state->drive_state.pid_left) - base);
-    printf("state.drive_state.pid_right:%ld:pid_t\n", (uint64_t)(&state->drive_state.pid_right) - base);
-    printf("state.drive_state.left:%ld:int32_t\n", (uint64_t)(&state->drive_state.left) - base);
-    printf("state.drive_state.right:%ld:int32_t\n", (uint64_t)(&state->drive_state.right) - base);
-    printf("state.drive_state.left_prev:%ld:int32_t\n", (uint64_t)(&state->drive_state.left_prev) - base);
-    printf("state.drive_state.right_prev:%ld:int32_t\n", (uint64_t)(&state->drive_state.right_prev) - base);
-    printf("state.drive_state.loop_motor:%ld:loop_t\n", (uint64_t)(&state->drive_state.loop_motor) - base);
-    printf("state.drive_state.loop_vsense:%ld:loop_t\n", (uint64_t)(&state->drive_state.loop_vsense) - base);
-    printf("state.drive_state.position:%ld:double\n", (uint64_t)(&state->drive_state.position) - base);
-    printf("state.drive_state.speed:%ld:double\n", (uint64_t)(&state->drive_state.speed) - base);
-    printf("state.drive_state.battery_voltage:%ld:double\n", (uint64_t)(&state->drive_state.battery_voltage) - base);
+    // Drive related
+    printf("state.position:%ld:double\n", (uint64_t)(&state->position) - base);
+    printf("state.speed:%ld:double\n", (uint64_t)(&state->speed) - base);
+    printf("state.battery_voltage:%ld:double\n", (uint64_t)(&state->battery_voltage) - base);
 
     // Encoder state
     printf("state.encoder_left:%ld:int32_t\n", (uint64_t)(&state->encoder_left) - base);
@@ -212,15 +166,11 @@ int application_start()
 
     print("UI server started");
 
-    // Initialize peripherals
+    // Initialize services
     imu_init();
-    motor_init();
     vsense_init();
-    encoder_init();
-    sensor_init(&state->sensor_state);
-    timer_init();
-
-    print("Peripherals initialized");
+    sensor_init();
+    print("Services initialized");
 
     int ret;
 
@@ -278,53 +228,54 @@ int application_start()
             print("Quitting...");
             state->state = STATE_EXIT;
         }
+
         else if (strcmp(buffer, "cali_low") == 0)
         {
             print("Calibrating low");
-            state->state = STATE_CALI;
-            state->sensor_state.state = STATE_CALI_LOW;
+            state->state = STATE_CALI_LOW;
 
             // Reset low values
             for (int i = 0; i < 16; i++)
             {
-                state->sensor_state.calibration.sensor_low[i] = 0;
+                state->sensor_low[i] = 0;
             }
-
-            state->sensor_state.is_calibrated = true;
         }
+
         else if (strcmp(buffer, "cali_high") == 0)
         {
             print("Calibrating high");
-            state->state = STATE_CALI;
-            state->sensor_state.state = STATE_CALI_HIGH;
+            motor_enable(false);
+            state->state = STATE_CALI_HIGH;
 
             // Reset high values
             for (int i = 0; i < 16; i++)
             {
-                state->sensor_state.calibration.sensor_high[i] = 0;
+                state->sensor_high[i] = 0;
             }
-            state->sensor_state.is_calibrated = true;
         }
+
         else if (strcmp(buffer, "cali_save") == 0)
         {
             print("Saving calibration");
             state->state = STATE_IDLE;
-            state->sensor_state.state = STATE_READING;
             sensor_save_calibration();
         }
+
         else if (strcmp(buffer, "drive") == 0)
         {
             print("Driving");
-            drive_init(&state->drive_state);
-            state->sensor_state.state = STATE_READING;
-            state->state = STATE_DRIV;
+            drive_init();
+            state->state = STATE_DRIVE;
         }
+
         else if (strcmp(buffer, "idle") == 0)
         {
             print("Idling");
+            motor_enable(false);
+            state->speed = 0.0;
             state->state = STATE_IDLE;
-            state->sensor_state.state = STATE_READING;
         }
+
         else
         {
             print("Unknown command: %s", buffer);

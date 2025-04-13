@@ -337,13 +337,13 @@ void dev_pwm_enable(uint32_t channel, bool enable)
     uint32_t *ctl = pwm_base;
     uint32_t *dat = pwm_base + 5 + channel * 4;
 
+    // Set data to 0
+    *dat = 0;
+
     if (!enable)
     {
         // Disable PWM channel
         *ctl &= ~(1 << (channel * 8));
-
-        // Set data to 0
-        *dat = 0;
         return;
     }
 

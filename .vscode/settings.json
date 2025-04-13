@@ -1,6 +1,7 @@
 {
   "files.associations": {
     "*.py": "python",
-    "sensor-service.h": "c"
+    "sensor-service.h": "c",
+    "state.h": "c"
   }
 }

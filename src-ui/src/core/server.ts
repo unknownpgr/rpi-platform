@@ -33,21 +33,15 @@ export class Server {
 
   private state: RobotState = {
     state: RobotStatus.IDLE,
-    sensor_state: {
-      state: 0,
-      raw_data: Array(16).fill(0),
-      sensor_data: Array(16).fill(0),
-      calibration: {
-        sensor_low: Array(16).fill(0),
-        sensor_high: Array(16).fill(0),
-      },
-      is_calibrated: false,
-    },
-    drive_state: {
-      position: 0,
-      speed: 0,
-      battery_voltage: 0,
-    },
+    sensor_raw: Array(16).fill(0),
+    sensor_data: Array(16).fill(0),
+    position: 0,
+    sensor_low: Array(16).fill(0),
+    sensor_high: Array(16).fill(0),
+    encoder_left: 0,
+    encoder_right: 0,
+    speed: 0,
+    battery_voltage: 0,
   };
   private listeners: ((data: ServerEvent) => void)[] = [];
 
@@ -92,7 +86,9 @@ export class Server {
     this.ws?.close();
     this.connectionStatus = "connecting";
     this.notify({ type: "connectionStatus", data: this.connectionStatus });
-    this.initializeWebSocket();
+    setTimeout(() => {
+      this.initializeWebSocket();
+    }, 1000);
   }
 
   private notify(data: ServerEvent) {

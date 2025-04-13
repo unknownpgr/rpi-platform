@@ -19,27 +19,24 @@
 #define IR_S00 26
 #define IR_SEN 27
 
-sensor_state_t *sensor_state;
+static int spi_fd;
+
+typedef struct
+{
+    uint16_t low[NUM_SENSORS];
+    uint16_t high[NUM_SENSORS];
+} calibration_t;
 
 typedef union
 {
     calibration_t data;
-    uint8_t raw[sizeof(calibration_t)];
-} calibration_data_union_t;
-
-static int spi_fd;
+    uint8_t buf[sizeof(calibration_t)];
+} calibration_union_t;
 
 void sensor_save_calibration()
 {
-    // If not calibrated, do nothing
-    if (!sensor_state->is_calibrated)
-    {
-        warning("Not calibrated, skipping calibration save");
-        return;
-    }
-
-    calibration_data_union_t union_data = {0};
-    uint8_t buf[sizeof(union_data.raw) + 5] = {0};
+    calibration_union_t union_data = {0};
+    uint8_t buf[sizeof(union_data.buf) + 5] = {0};
 
     // Set magic number
     buf[0] = 'C';
@@ -48,8 +45,12 @@ void sensor_save_calibration()
     buf[3] = 'I';
 
     // Copy calibration data into buffer
-    union_data.data = sensor_state->calibration;
-    memcpy(buf + 4, union_data.raw, sizeof(union_data.raw));
+    for (int i = 0; i < NUM_SENSORS; i++)
+    {
+        union_data.data.low[i] = state->sensor_low[i];
+        union_data.data.high[i] = state->sensor_high[i];
+    }
+    memcpy(buf + 4, union_data.buf, sizeof(union_data.buf));
 
     // Calculate checksum
     uint8_t checksum = 0;
@@ -82,7 +83,7 @@ void sensor_load_calibration()
     }
 
     // Read calibration data
-    uint8_t buf[sizeof(calibration_data_union_t) + 5] = {0};
+    uint8_t buf[sizeof(calibration_union_t) + 5] = {0};
 
     fread(buf, sizeof(buf), 1, file);
     fclose(file);
@@ -107,23 +108,19 @@ void sensor_load_calibration()
     }
 
     // Copy buffer into calibration data
-    calibration_data_union_t union_data = {0};
-    memcpy(&union_data.raw, buf + 4, sizeof(union_data.raw));
-    sensor_state->calibration = union_data.data;
-
-    // Set calibrated flag
-    sensor_state->is_calibrated = true;
+    calibration_union_t union_data = {0};
+    memcpy(&union_data.buf, buf + 4, sizeof(union_data.buf));
+    for (int i = 0; i < NUM_SENSORS; i++)
+    {
+        state->sensor_low[i] = union_data.data.low[i];
+        state->sensor_high[i] = union_data.data.high[i];
+    }
 
     print("Calibration loaded from %s", CALIBRATION_FILE);
 }
 
-void sensor_init(sensor_state_t *state)
+void sensor_init()
 {
-    sensor_state = state;
-    state->is_calibrated = false;
-    state->sensor_index = 0;
-    state->state = STATE_READING;
-
     // Set GPIO mode
     dev_spi_enable(true);
 
@@ -210,54 +207,57 @@ uint16_t sensor_read_raw(uint8_t sensor_index)
 
 void sensor_read_one()
 {
+    static uint8_t sensor_index = 0;
+
     // Read raw sensor data
-    uint16_t data = sensor_read_raw(sensor_state->sensor_index);
-    sensor_state->raw_data[sensor_state->sensor_index] = data;
+    uint16_t data = sensor_read_raw(sensor_index);
+    state->sensor_raw[sensor_index] = data;
 
     // Normalize ALL sensor data
     for (uint8_t i = 0; i < NUM_SENSORS; i++)
     {
-        sensor_state->sensor_data[i] = (double)(sensor_state->raw_data[i] - sensor_state->calibration.sensor_low[i]) / (sensor_state->calibration.sensor_high[i] - sensor_state->calibration.sensor_low[i]);
-        if (sensor_state->sensor_data[i] < 0)
+        double data = (double)(state->sensor_raw[i] - state->sensor_low[i]) / (state->sensor_high[i] - state->sensor_low[i]);
+        if (data < 0)
         {
-            sensor_state->sensor_data[i] = 0;
+            data = 0;
         }
-        else if (sensor_state->sensor_data[i] > 1)
+        else if (data > 1)
         {
-            sensor_state->sensor_data[i] = 1;
+            data = 1;
         }
+        state->sensor_data[i] = data;
     }
 
     // Increment sensor index
-    sensor_state->sensor_index++;
-    if (sensor_state->sensor_index >= NUM_SENSORS)
+    sensor_index++;
+    if (sensor_index >= NUM_SENSORS)
     {
-        sensor_state->sensor_index = 0;
+        sensor_index = 0;
     }
 }
 
 void sensor_loop()
 {
-    sensor_read_one(sensor_state->sensor_data);
-    switch (sensor_state->state)
+    sensor_read_one();
+    switch (state->state)
     {
     case STATE_CALI_LOW:
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {
-            sensor_state->raw_data[i] = sensor_read_raw(i);
-            if (sensor_state->raw_data[i] > sensor_state->calibration.sensor_low[i])
+            uint16_t data = sensor_read_raw(i);
+            if (data > state->sensor_low[i])
             {
-                sensor_state->calibration.sensor_low[i] = sensor_state->raw_data[i];
+                state->sensor_low[i] = data;
             }
         }
         break;
     case STATE_CALI_HIGH:
         for (uint8_t i = 0; i < NUM_SENSORS; i++)
         {
-            sensor_state->raw_data[i] = sensor_read_raw(i);
-            if (sensor_state->raw_data[i] > sensor_state->calibration.sensor_high[i])
+            uint16_t data = sensor_read_raw(i);
+            if (data > state->sensor_high[i])
             {
-                sensor_state->calibration.sensor_high[i] = sensor_state->raw_data[i];
+                state->sensor_high[i] = data;
             }
         }
         break;
@@ -354,7 +354,7 @@ void sensor_test_calibration()
             for (uint8_t i = 0; i < 16; i++)
             {
                 // Calculate calibrated value
-                double calibrated_value = (double)(sensor_data[i] - sensor_state->calibration.sensor_low[i]) / (sensor_state->calibration.sensor_high[i] - sensor_state->calibration.sensor_low[i]);
+                double calibrated_value = (double)(sensor_data[i] - state->sensor_low[i]) / (state->sensor_high[i] - state->sensor_low[i]);
 
                 // Clamp value into range [0, 1]
                 if (calibrated_value < 0)

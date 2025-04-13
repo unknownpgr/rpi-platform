@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { Button } from "./Button";
 import { Card } from "./Card";
 import { Server } from "./core/server";
-import { RobotStatus, SensorStatus } from "./core/types";
+import { RobotStatus } from "./core/types";
 import { useServer } from "./useServer";
 function SensorDataRow({
   low,
@@ -166,7 +166,6 @@ function App() {
   const state = server.getState();
 
   const terminalElementRef = useRef<HTMLDivElement>(null);
-  const terminalRef = useRef<Terminal>(null);
 
   useEffect(() => {
     if (terminalElementRef.current) {
@@ -176,10 +175,8 @@ function App() {
         rows: 12,
       });
       terminal.open(terminalElementRef.current);
-      terminalRef.current = terminal;
 
       const removeListener = server.addListener((event) => {
-        console.log(event);
         if (event.type === "input") terminal.write(event.data);
       });
 
@@ -188,7 +185,7 @@ function App() {
         terminal.dispose();
       };
     }
-  }, []);
+  }, [terminalElementRef.current]);
 
   if (server.getConnectionStatus() === "connecting") {
     return (
@@ -251,18 +248,14 @@ function App() {
             </Button>
             <Button
               variant={
-                state.sensor_state.state === SensorStatus.CALI_LOW
-                  ? "activated"
-                  : "default"
+                state.state === RobotStatus.CALI_LOW ? "activated" : "default"
               }
               onClick={() => server.sendCommand("cali_low")}>
               CALIBRATE_LOW
             </Button>
             <Button
               variant={
-                state.sensor_state.state === SensorStatus.CALI_HIGH
-                  ? "activated"
-                  : "default"
+                state.state === RobotStatus.CALI_HIGH ? "activated" : "default"
               }
               onClick={() => server.sendCommand("cali_high")}>
               CALIBRATE_HIGH
@@ -272,7 +265,7 @@ function App() {
             </Button>
             <Button
               variant={
-                state.state === RobotStatus.DRIVING ? "activated" : "default"
+                state.state === RobotStatus.DRIVE ? "activated" : "default"
               }
               onClick={() => server.sendCommand("drive")}>
               DRIVE
@@ -282,24 +275,24 @@ function App() {
         </Card>
         <Card title="Sensor Data">
           <div className="flex flex-row gap-2">
-            {state.sensor_state.sensor_data.map((data, index) => (
+            {state.sensor_data.map((data, index) => (
               <SensorDataRow
                 key={index}
-                low={state.sensor_state.calibration.sensor_low[index]}
-                high={state.sensor_state.calibration.sensor_high[index]}
-                raw={state.sensor_state.raw_data[index]}
+                low={state.sensor_low[index]}
+                high={state.sensor_high[index]}
+                raw={state.sensor_raw[index]}
                 data={data}
               />
             ))}
           </div>
         </Card>
         <Card title="Drive State">
-          <Speedometer speed={state.drive_state.speed} maxSpeed={10} />
+          <Speedometer speed={state.speed} maxSpeed={10} />
           <br />
-          <PositionMeter position={state.drive_state.position} />
+          <PositionMeter position={state.position} />
         </Card>
         <Card title="Battery Voltage">
-          <BatteryMeter voltage={state.drive_state.battery_voltage} />
+          <BatteryMeter voltage={state.battery_voltage} />
         </Card>
         <Card title="Terminal">
           <div className="rounded-md overflow-hidden p-2 bg-black">

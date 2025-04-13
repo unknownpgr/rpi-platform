@@ -5,6 +5,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
 include_directories(src-main/core/interfaces)
+include_directories(src-main/core)
+
 add_executable(
     app
     
