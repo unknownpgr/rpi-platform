@@ -287,7 +287,7 @@ function App() {
           </div>
         </Card>
         <Card title="Drive State">
-          <Speedometer speed={state.speed} maxSpeed={10} />
+          <Speedometer speed={state.speed} maxSpeed={30} />
           <br />
           <PositionMeter position={state.position} />
         </Card>
