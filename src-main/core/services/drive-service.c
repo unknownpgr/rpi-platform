@@ -471,7 +471,7 @@ void drive_loop()
     if (loop_update(&loop_vsense, &dt_ns))
     {
         // Update vsense value with IIR filter
-        state->battery_voltage = state->battery_voltage * 0.5 + vsense_read() * 0.5;
+        state->battery_voltage = state->battery_voltage * 0.99 + vsense_read() * 0.01;
     }
 
     // Motor control loop
