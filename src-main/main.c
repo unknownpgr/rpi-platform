@@ -17,7 +17,6 @@
 #include <log.h>
 #include <timer.h>
 #include <motor.h>
-#include <linalg.h>
 #include <encoder.h>
 
 #include <imu-service.h>

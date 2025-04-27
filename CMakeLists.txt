@@ -32,9 +32,7 @@ add_executable(
     src-main/infra/motor.c
     src-main/infra/encoder.c
     src-main/infra/timer.c
-    src-main/infra/linalg.c
 )
 target_link_libraries(app m)
 find_package(Threads REQUIRED)
-find_package(LAPACK REQUIRED)
-target_link_libraries(app ${CMAKE_THREAD_LIBS_INIT} ${LAPACK_LIBRARIES})
+target_link_libraries(app ${CMAKE_THREAD_LIBS_INIT})
