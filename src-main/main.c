@@ -25,7 +25,6 @@
 #include <music-service.h>
 #include <vsense-service.h>
 #include <sensor-service.h>
-#include <keyboard-service.h>
 
 void pin_thread_to_cpu(int cpu)
 {
@@ -58,7 +57,7 @@ void thread_encoder(void *_)
 
     loop_t loop_encoder;
     uint32_t dt_ns;
-    loop_init(&loop_encoder, 1000); // 1us
+    loop_init(&loop_encoder, 1000); // 1us = 1MHz
     while (state->state != STATE_EXIT)
     {
         if (loop_update(&loop_encoder, &dt_ns))
@@ -74,9 +73,6 @@ void thread_drive(void *_)
     pin_thread_to_cpu(3);
     while (state->state != STATE_EXIT)
     {
-        // TODO: SPI is terribly slow. We need to optimize this.
-        // About 10848 loops per second. (~11kHz)
-        // Much lower then I expected. (~100kHz)
         sensor_loop();
         drive_loop();
     }

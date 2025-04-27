@@ -10,8 +10,6 @@
 #include <timer.h>
 #include <encoder.h>
 
-#include <keyboard-service.h>
-
 void init();
 void handle_exit();
 
@@ -39,10 +37,6 @@ void init()
     sigaction(SIGSEGV, &action, NULL);
     sigaction(SIGPIPE, &action, NULL);
     sigaction(SIGTERM, &action, NULL);
-
-    // Initialize keyboard
-    keyboard_init();
-    print("Keyboard initialized");
 
     // Initialize peripherals
     if (!dev_init())

@@ -8,8 +8,6 @@
 #include <log.h>
 #include <timer.h>
 
-#include <keyboard-service.h>
-
 #define NUM_SENSORS 16
 #define CALIBRATION_FILE "calibration.bin"
 
@@ -129,8 +127,6 @@ void sensor_init()
     dev_gpio_set_mode(IR_S01, GPIO_FSEL_OUT);
     dev_gpio_set_mode(IR_S00, GPIO_FSEL_OUT);
     dev_gpio_set_mode(IR_SEN, GPIO_FSEL_OUT);
-
-    keyboard_init();
 
     sensor_load_calibration();
 }

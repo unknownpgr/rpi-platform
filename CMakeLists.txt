@@ -4,6 +4,12 @@ project(RPi, C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
+# Turn off GNU extensions
+set(CMAKE_C_EXTENSIONS OFF)
+
+# Enable POSIX
+add_compile_definitions(_POSIX_C_SOURCE=200809L)
+
 include_directories(src-main/core/interfaces)
 include_directories(src-main/core)
 
@@ -18,7 +24,6 @@ add_executable(
     src-main/core/services/music-service.c
     src-main/core/services/radio-service.c
     src-main/core/services/sensor-service.c
-    src-main/core/services/keyboard-service.c
     src-main/core/services/drive-service.c
     src-main/core/services/vsense-service.c
     src-main/core/services/imu-service.c
