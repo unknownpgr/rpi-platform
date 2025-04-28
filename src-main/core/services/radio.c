@@ -1,4 +1,4 @@
-#include <radio-service.h>
+#include <services/radio.h>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -7,10 +7,11 @@
 #include <sys/mman.h>
 #include <math.h>
 #include <stdbool.h>
-#include <timer.h>
 #include <stdint.h>
-#include <dev.h>
-#include <log.h>
+
+#include <ports/timer.h>
+#include <ports/dev.h>
+#include <ports/log.h>
 
 #define BCM2835_PERI_BASE 0x3F000000              // 라즈베리파이 4 기준
 #define CLOCK_BASE (BCM2835_PERI_BASE + 0x101000) // Clock 레지스터 주소

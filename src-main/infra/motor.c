@@ -1,7 +1,9 @@
+#include <ports/motor.h>
+
 #include <stdio.h>
 #include <unistd.h>
-#include <motor.h>
-#include <dev.h>
+
+#include <ports/dev.h>
 
 #define GPIO_PIN_EN 18
 #define GPIO_PIN_L_DIR 16

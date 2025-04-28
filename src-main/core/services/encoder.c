@@ -1,5 +1,6 @@
-#include <encoder.h>
-#include <dev.h>
+#include <services/encoder.h>
+
+#include <ports/dev.h>
 
 #define ENCODER_L_A 19
 #define ENCODER_L_B 20

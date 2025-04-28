@@ -3,23 +3,15 @@
 #include <signal.h>
 #include <stdlib.h>
 
-#include <dev.h>
-#include <log.h>
 #include <main.h>
-#include <motor.h>
-#include <timer.h>
-#include <encoder.h>
 
-void init();
+#include <ports/dev.h>
+#include <ports/log.h>
+#include <ports/timer.h>
+#include <ports/motor.h>
+#include <services/encoder.h>
+
 void handle_exit();
-
-int main()
-{
-    init();
-    application_start();
-    handle_exit();
-    return 0;
-}
 
 void init()
 {
@@ -104,4 +96,12 @@ void handle_exit()
 
     // Exit program
     exit(0);
+}
+
+int main()
+{
+    init();
+    application_start();
+    handle_exit();
+    return 0;
 }

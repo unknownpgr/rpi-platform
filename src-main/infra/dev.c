@@ -1,4 +1,4 @@
-#include <dev.h>
+#include <ports/dev.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@
 #include <linux/i2c-dev.h>
 #include <sys/ioctl.h>
 
-#include <log.h>
+#include <ports/log.h>
 
 #define PAGE_SIZE 4096
 

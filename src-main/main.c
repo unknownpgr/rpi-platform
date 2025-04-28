@@ -14,16 +14,17 @@
 #include <pthread.h>
 #include <sys/mman.h>
 
-#include <log.h>
-#include <timer.h>
-#include <motor.h>
-#include <encoder.h>
+#include <ports/log.h>
+#include <ports/timer.h>
+#include <ports/motor.h>
 
-#include <imu-service.h>
-#include <drive-service.h>
-#include <music-service.h>
-#include <vsense-service.h>
-#include <sensor-service.h>
+#include <services/encoder.h>
+#include <services/clock.h>
+#include <services/imu.h>
+#include <services/drive.h>
+#include <services/music.h>
+#include <services/vsense.h>
+#include <services/sensor.h>
 
 void pin_thread_to_cpu(int cpu)
 {
@@ -45,7 +46,7 @@ void thread_timer(void *_)
     while (state->state != STATE_EXIT)
     {
         usleep(10000); // Sleep for 10ms
-        timer_update();
+        clock_update();
     }
 }
 

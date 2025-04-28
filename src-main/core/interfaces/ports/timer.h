@@ -8,9 +8,7 @@
 #define ACCUM(from, diff) (((from) + (diff)) % TIMER_NS_MAX)
 
 bool timer_init();
-void timer_update(); // NOTE: This function must be called at least once every .5 seconds
 void timer_sleep_ns(uint32_t ns);
-uint32_t timer_get_s();
 uint32_t timer_get_ns();
 
 // Loop-related

@@ -2,6 +2,11 @@
   "files.associations": {
     "*.py": "python",
     "sensor-service.h": "c",
-    "state.h": "c"
+    "state.h": "c",
+    "sensor.h": "c",
+    "music.h": "c",
+    "log.h": "c",
+    "clock.h": "c",
+    "time.h": "c"
   }
 }

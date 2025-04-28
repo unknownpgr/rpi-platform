@@ -1,4 +1,4 @@
-#include <music-service.h>
+#include <services/music.h>
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -6,10 +6,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <dev.h>
-#include <log.h>
-#include <motor.h>
-#include <timer.h>
+#include <ports/dev.h>
+#include <ports/log.h>
+#include <ports/motor.h>
+#include <ports/timer.h>
 
 void music_play(char *music_file_path)
 {

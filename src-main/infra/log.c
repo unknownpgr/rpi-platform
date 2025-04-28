@@ -2,15 +2,16 @@
 #include <stdarg.h>
 #include <stdint.h>
 
-#include <log.h>
-#include <timer.h>
+#include <services/clock.h>
+#include <ports/log.h>
+#include <ports/timer.h>
 
 float start_time_s = -1;
 
 void print(const char *format, ...)
 {
     // Get current seconds in float
-    float s = timer_get_ns() / 1000000000.f + timer_get_s();
+    float s = timer_get_ns() / 1000000000.f + clock_get_s();
 
     // Initialize start_time_s if it is not initialized
     if (start_time_s < 0)

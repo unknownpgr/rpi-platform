@@ -1,7 +1,7 @@
-#include <imu-service.h>
+#include <services/imu.h>
 
-#include <dev.h>
-#include <log.h>
+#include <ports/dev.h>
+#include <ports/log.h>
 
 #define ICM42067_ADDR 0x68
 #define ICM42067_WHOAMI 0x75

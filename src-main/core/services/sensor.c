@@ -1,12 +1,12 @@
-#include <sensor-service.h>
+#include <services/sensor.h>
 
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 
-#include <dev.h>
-#include <log.h>
-#include <timer.h>
+#include <ports/dev.h>
+#include <ports/log.h>
+#include <ports/timer.h>
 
 #define NUM_SENSORS 16
 #define CALIBRATION_FILE "calibration.bin"

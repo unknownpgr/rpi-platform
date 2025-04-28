@@ -1,12 +1,14 @@
-#include <drive-service.h>
+#include <services/drive.h>
 
 #include <stdio.h>
-#include <motor.h>
-#include <encoder.h>
-#include <log.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
-#include <sensor-service.h>
-#include <vsense-service.h>
+#include <ports/motor.h>
+#include <ports/log.h>
+#include <services/encoder.h>
+#include <services/sensor.h>
+#include <services/vsense.h>
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
@@ -387,8 +389,33 @@ pid_control_t pid_right;
 loop_t loop_motor;
 loop_t loop_vsense;
 
+#define SENSOR_LOG_DIR "../data/sensor_history"
+#define SENSOR_HISTORY_SIZE 100000
+double *sensor_history = NULL;
+int sensor_history_index = -1;
+
 void drive_init()
 {
+    if (sensor_history != NULL)
+    {
+        free(sensor_history);
+    }
+    sensor_history = (double *)malloc(SENSOR_HISTORY_SIZE * (NUM_SENSORS + 1) * sizeof(double));
+    // Check if malloc failed
+    if (sensor_history == NULL)
+    {
+        print("Failed to allocate sensor history.");
+        return;
+    }
+    else
+    {
+        print("Sensor history allocated.");
+    }
+    sensor_history_index = 0;
+
+    // Create ../data folder if it doesn't exist
+    mkdir(SENSOR_LOG_DIR, 0755);
+
     default_speed = 15;
     default_curvature = 1.5;
     acceleration = 20;
@@ -439,6 +466,41 @@ void drive_init()
 void drive_loop()
 {
     uint32_t dt_ns;
+
+    if (sensor_history_index < 0)
+    {
+        // Do nothing
+    }
+    else if (sensor_history_index < SENSOR_HISTORY_SIZE)
+    {
+        for (int i = 0; i < NUM_SENSORS; i++)
+        {
+            sensor_history[sensor_history_index * NUM_SENSORS + i] = state->sensor_data[i];
+        }
+        sensor_history[sensor_history_index * NUM_SENSORS + NUM_SENSORS] = timer_get_ns() / 1e9;
+        sensor_history_index++;
+    }
+    else
+    {
+        print("Sensor history full. Saving to file...");
+
+        // Save sensor data to file
+        char filename[100];
+        snprintf(filename, sizeof(filename), "%s/sensor_history-%d.txt", SENSOR_LOG_DIR, sensor_history_index);
+        FILE *file = fopen(filename, "w");
+        for (int i = 0; i < SENSOR_HISTORY_SIZE; i++)
+        {
+            for (int j = 0; j < NUM_SENSORS; j++)
+            {
+                fprintf(file, "%f ", sensor_history[i * NUM_SENSORS + j]);
+            }
+            fprintf(file, "\n");
+        }
+        fclose(file);
+
+        print("Sensor history saved to file %d", sensor_history_index);
+        sensor_history_index = -1;
+    }
 
     state->position = line_find_position(state->sensor_data, state->position);
     uint8_t mark = mark_state_machine(state->sensor_data, state->position);

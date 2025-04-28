@@ -19,18 +19,19 @@ add_executable(
     src-main/entry.c
     src-main/main.c
     
-    src-main/core/services/log.c
-    src-main/core/services/knob-service.c
-    src-main/core/services/music-service.c
-    src-main/core/services/radio-service.c
-    src-main/core/services/sensor-service.c
-    src-main/core/services/drive-service.c
-    src-main/core/services/vsense-service.c
-    src-main/core/services/imu-service.c
-
+    src-main/core/services/knob.c
+    src-main/core/services/music.c
+    src-main/core/services/radio.c
+    src-main/core/services/sensor.c
+    src-main/core/services/drive.c
+    src-main/core/services/vsense.c
+    src-main/core/services/imu.c
+    src-main/core/services/clock.c
+    src-main/core/services/encoder.c
+    
     src-main/infra/dev.c
+    src-main/infra/log.c
     src-main/infra/motor.c
-    src-main/infra/encoder.c
     src-main/infra/timer.c
 )
 target_link_libraries(app m)

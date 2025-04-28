@@ -1,13 +1,12 @@
-#include <knob-service.h>
+#include <services/knob.h>
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 
-#include <encoder.h>
-#include <motor.h>
-#include <timer.h>
-#include <log.h>
+#include <ports/motor.h>
+#include <ports/timer.h>
+#include <services/encoder.h>
 
 typedef struct
 {

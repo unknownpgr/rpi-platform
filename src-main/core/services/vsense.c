@@ -1,6 +1,6 @@
-#include <vsense-service.h>
+#include <services/vsense.h>
 
-#include <dev.h>
+#include <ports/dev.h>
 
 void vsense_init()
 {
