@@ -2,13 +2,6 @@
 
 #include <time.h>
 
-static inline uint32_t __get_time_ns()
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-    return ts.tv_nsec;
-}
-
 bool timer_init()
 {
     return true;
@@ -23,7 +16,9 @@ void timer_sleep_ns(uint32_t ns)
 
 uint32_t timer_get_ns()
 {
-    return __get_time_ns();
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    return ts.tv_nsec;
 }
 
 void loop_init(loop_t *loop, uint32_t interval_ns)

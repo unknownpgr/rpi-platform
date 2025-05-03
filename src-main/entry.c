@@ -30,7 +30,7 @@ void init()
     sigaction(SIGPIPE, &action, NULL);
     sigaction(SIGTERM, &action, NULL);
 
-    // Initialize peripherals
+    // Initialize ports
     if (!dev_init())
     {
         print("Failed to initialize device");
