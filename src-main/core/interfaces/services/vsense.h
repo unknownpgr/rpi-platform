@@ -1,6 +1,6 @@
 #pragma once
 
 #include <stdint.h>
+#include <em.h>
 
-void vsense_init();
-float vsense_read();
+extern em_service_t service_vsense;

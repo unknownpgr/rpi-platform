@@ -87,6 +87,7 @@ void init_em()
     em_add_service(&em_local_3, &service_sensor);
     em_add_service(&em_local_3, &service_sensor_low);
     em_add_service(&em_local_3, &service_sensor_high);
+    em_add_service(&em_local_3, &service_vsense);
 }
 
 int init_state()

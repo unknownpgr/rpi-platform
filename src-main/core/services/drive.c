@@ -83,10 +83,6 @@ static void tune_collect_motor_response(double *input, double *output, uint32_t 
         previous_position = right;
     }
 
-    double battery_voltage = 0.0;
-    battery_voltage = vsense_read();
-    print("Battery Voltage: %2.2f", battery_voltage);
-
     uint32_t i = 0;
     uint32_t _;
 
@@ -99,7 +95,7 @@ static void tune_collect_motor_response(double *input, double *output, uint32_t 
             if (i % 10 == 0)
             {
                 input_value = tune_pseudo_random_bit_sequence() ? max_input : -max_input;
-                input_value /= battery_voltage;
+                input_value /= state->battery_voltage;
             }
 
             // Output
@@ -137,9 +133,6 @@ static void tune_collect_motor_response(double *input, double *output, uint32_t 
             {
                 break;
             }
-
-            // Read battery_voltage
-            battery_voltage = vsense_read() * 0.1 + battery_voltage * 0.9;
         }
     }
 
@@ -400,7 +393,6 @@ int32_t encoder_right_prev;
 pid_control_t pid_left;
 pid_control_t pid_right;
 loop_t loop_motor;
-loop_t loop_vsense;
 
 void drive_setup()
 {
@@ -434,17 +426,7 @@ void drive_setup()
         mark_accum[i] = false;
     }
 
-    // Initialize battery voltage
-    double voltage = 0;
-    for (int i = 0; i < 50; i++)
-    {
-        voltage = voltage * 0.9 + vsense_read() * 0.1;
-        timer_sleep_ns(1000000); // 1m
-    }
-    state->battery_voltage = voltage;
-
-    loop_init(&loop_motor, 1000000);    // 1ms
-    loop_init(&loop_vsense, 100000000); // 100ms
+    loop_init(&loop_motor, 1000000); // 1ms
 
     motor_set_velocity(0, 0);
     motor_enable(true);
@@ -480,13 +462,6 @@ void drive_loop()
     case MARK_CROSS:
         print("MARK_CROSS");
         break;
-    }
-
-    // VSense loop
-    if (loop_update(&loop_vsense, &dt_ns))
-    {
-        // Update vsense value with IIR filter
-        state->battery_voltage = state->battery_voltage * 0.99 + vsense_read() * 0.01;
     }
 
     // Motor control loop
