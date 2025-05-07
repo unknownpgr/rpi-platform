@@ -57,21 +57,18 @@ void thread_1(void *_)
     {
         usleep(10000); // Sleep for 10ms
     }
-    print("Thread 1 finished");
 }
 
 void thread_2(void *_)
 {
     pin_thread_to_cpu(2);
     EM_LOOP(&em_local_2);
-    print("Thread 2 finished");
 }
 
 void thread_3(void *_)
 {
     pin_thread_to_cpu(3);
     EM_LOOP(&em_local_3);
-    print("Thread 3 finished");
 }
 
 void init_em()
@@ -83,11 +80,14 @@ void init_em()
     em_init_local_context(&em_local_3, &em_context); // Sensor & Drive
 
     em_add_service(&em_local_1, &service_clock);
+
     em_add_service(&em_local_2, &service_encoder);
+
     em_add_service(&em_local_3, &service_sensor);
     em_add_service(&em_local_3, &service_sensor_low);
     em_add_service(&em_local_3, &service_sensor_high);
     em_add_service(&em_local_3, &service_vsense);
+    em_add_service(&em_local_3, &service_drive);
 }
 
 int init_state()
@@ -228,34 +228,27 @@ int application_start()
 
             if (strcmp(buffer, "quit") == 0)
             {
-                print("Quitting...");
-                em_context.curr_state = EM_STATE_HALT;
+                em_set_state(&em_context, EM_STATE_HALT);
             }
             else if (strcmp(buffer, "cali_low") == 0)
             {
-                print("Calibrating low");
-                em_context.curr_state = EM_STATE_CALI_LOW;
+                em_set_state(&em_context, EM_STATE_CALI_LOW);
             }
-
             else if (strcmp(buffer, "cali_high") == 0)
             {
-                print("Calibrating high");
-                em_context.curr_state = EM_STATE_CALI_HIGH;
+                em_set_state(&em_context, EM_STATE_CALI_HIGH);
             }
             else if (strcmp(buffer, "cali_save") == 0)
             {
-                print("Saving calibration");
-                em_context.curr_state = EM_STATE_IDLE;
+                em_set_state(&em_context, EM_STATE_IDLE);
             }
             else if (strcmp(buffer, "drive") == 0)
             {
-                print("Driving");
-                em_context.curr_state = EM_STATE_DRIVE;
+                em_set_state(&em_context, EM_STATE_DRIVE);
             }
             else if (strcmp(buffer, "idle") == 0)
             {
-                print("Idling");
-                em_context.curr_state = EM_STATE_IDLE;
+                em_set_state(&em_context, EM_STATE_IDLE);
             }
             else
             {

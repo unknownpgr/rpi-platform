@@ -42,3 +42,4 @@ void em_init_context(em_context_t *context);
 void em_init_local_context(em_local_context_t *local_context, em_context_t *context);
 void em_add_service(em_local_context_t *local_context, em_service_t *service);
 bool em_update(em_local_context_t *local_context);
+void em_set_state(em_context_t *context, em_state_t state);

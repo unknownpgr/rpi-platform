@@ -158,3 +158,8 @@ bool em_update(em_local_context_t *local_context)
   }
   return true;
 }
+
+void em_set_state(em_context_t *context, em_state_t state)
+{
+  context->curr_state = state;
+}
