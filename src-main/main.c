@@ -229,7 +229,8 @@ int application_start()
 
             if (strcmp(buffer, "quit") == 0)
             {
-                em_set_state(&em_context, EM_STATE_HALT);
+                print("You cannot quit in this version.");
+                // em_set_state(&em_context, EM_STATE_HALT);
             }
             else if (strcmp(buffer, "cali_low") == 0)
             {
