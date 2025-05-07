@@ -82,6 +82,7 @@ void init_em()
     em_add_service(&em_local_1, &service_clock);
 
     em_add_service(&em_local_2, &service_encoder);
+    em_add_service(&em_local_2, &service_music);
 
     em_add_service(&em_local_3, &service_sensor);
     em_add_service(&em_local_3, &service_sensor_low);
@@ -244,7 +245,7 @@ int application_start()
             }
             else if (strcmp(buffer, "drive") == 0)
             {
-                em_set_state(&em_context, EM_STATE_DRIVE);
+                em_set_state(&em_context, EM_STATE_MUSIC);
             }
             else if (strcmp(buffer, "idle") == 0)
             {

@@ -1,3 +1,5 @@
 #pragma once
 
-void music_play(char *music_file_path);
+#include "em.h"
+
+extern em_service_t service_music;
