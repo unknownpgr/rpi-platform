@@ -117,49 +117,6 @@ int init_state()
     return 0;
 }
 
-int init_ui_server()
-{
-    int pipe_read[2]; // [0] is read, [1] is write
-    int pipe_write[2];
-    pipe(pipe_read);
-    pipe(pipe_write);
-    fcntl(pipe_read[0], F_SETFL, 0);
-    fcntl(pipe_write[0], F_SETFL, O_NONBLOCK);
-
-    pid_t pid = fork();
-    if (pid == 0)
-    // Child process
-    {
-        char fd_str[10];
-        sprintf(fd_str, "%d", pipe_read[1]);
-
-        close(pipe_read[0]);
-        close(pipe_write[1]);
-
-        // Redirect stdin to pipe_write[0]
-        dup2(pipe_write[0], 0);
-
-        execlp("node", "node", "../src-broaker/app.js", fd_str, (char *)NULL);
-        print("Failed to start UI server");
-        exit(0);
-    }
-    else if (pid < 0)
-    {
-        print("Error starting UI server");
-        return -1;
-    }
-    else
-    // Parent processs
-    {
-        close(pipe_read[1]);
-        close(pipe_write[0]);
-
-        // Redirect stdout to pipe_write[1]
-        dup2(pipe_write[1], 1);
-    }
-    return 0;
-}
-
 int application_start()
 {
     print("Program started");
@@ -176,13 +133,46 @@ int application_start()
     }
     print("State initialized");
 
-    error = init_ui_server();
-    if (error != 0)
+    int pipe_read[2]; // [0] is read, [1] is write
+    int pipe_write[2];
     {
-        print("Error initializing UI server");
-        return error;
+        pipe(pipe_read);
+        pipe(pipe_write);
+        fcntl(pipe_read[0], F_SETFL, 0);
+        fcntl(pipe_write[0], F_SETFL, O_NONBLOCK);
+
+        pid_t pid = fork();
+        if (pid == 0)
+        // Child process
+        {
+            char fd_str[10];
+            sprintf(fd_str, "%d", pipe_read[1]);
+
+            close(pipe_read[0]);
+            close(pipe_write[1]);
+
+            // Redirect stdin to pipe_write[0]
+            dup2(pipe_write[0], 0);
+
+            execlp("node", "node", "../src-broaker/app.js", fd_str, (char *)NULL);
+            print("Failed to start UI server");
+            exit(0);
+        }
+        else if (pid < 0)
+        {
+            print("Error starting UI server");
+            return -1;
+        }
+        else
+        // Parent processs
+        {
+            close(pipe_read[1]);
+            close(pipe_write[0]);
+
+            // Redirect stdout to pipe_write[1]
+            dup2(pipe_write[1], 1);
+        }
     }
-    print("UI server initialized");
 
     char buffer[1024];
     state_print_offsets(state, buffer);
@@ -190,108 +180,90 @@ int application_start()
 
     // Start threads
     pthread_t threads[3];
-    error = pthread_create(&threads[0], NULL, (void *)thread_1, NULL);
-    if (error != 0)
     {
-        print("Error creating thread 1: %d", error);
-        return error;
+        error = pthread_create(&threads[0], NULL, (void *)thread_1, NULL);
+        if (error != 0)
+        {
+            print("Error creating thread 1: %d", error);
+            return error;
+        }
+
+        error = pthread_create(&threads[1], NULL, (void *)thread_2, NULL);
+        if (error != 0)
+        {
+            print("Error creating thread 2: %d", error);
+            return error;
+        }
+
+        error = pthread_create(&threads[2], NULL, (void *)thread_3, NULL);
+        if (error != 0)
+        {
+            print("Error creating thread 3: %d", error);
+            return error;
+        }
     }
 
-    error = pthread_create(&threads[1], NULL, (void *)thread_2, NULL);
-    if (error != 0)
+    // Receive message from UI server
     {
-        print("Error creating thread 2: %d", error);
-        return error;
+        char buffer[1024];
+        uint16_t len = 0;
+        while (em_context.curr_state != EM_STATE_HALT)
+        {
+            char c;
+            ssize_t bytes_read = read(pipe_read[0], &c, 1);
+            if (bytes_read == 0)
+            {
+                continue;
+            }
+
+            if (c == '\n')
+            {
+                buffer[len] = '\0';
+            }
+            else
+            {
+                buffer[len++] = c;
+                continue;
+            }
+
+            if (strcmp(buffer, "quit") == 0)
+            {
+                print("Quitting...");
+                em_context.curr_state = EM_STATE_HALT;
+            }
+            else if (strcmp(buffer, "cali_low") == 0)
+            {
+                print("Calibrating low");
+                em_context.curr_state = EM_STATE_CALI_LOW;
+            }
+
+            else if (strcmp(buffer, "cali_high") == 0)
+            {
+                print("Calibrating high");
+                em_context.curr_state = EM_STATE_CALI_HIGH;
+            }
+            else if (strcmp(buffer, "cali_save") == 0)
+            {
+                print("Saving calibration");
+                em_context.curr_state = EM_STATE_IDLE;
+            }
+            else if (strcmp(buffer, "drive") == 0)
+            {
+                print("Driving");
+                em_context.curr_state = EM_STATE_DRIVE;
+            }
+            else if (strcmp(buffer, "idle") == 0)
+            {
+                print("Idling");
+                em_context.curr_state = EM_STATE_IDLE;
+            }
+            else
+            {
+                print("Unknown command: %s", buffer);
+            }
+            len = 0;
+        }
     }
-
-    error = pthread_create(&threads[2], NULL, (void *)thread_3, NULL);
-    if (error != 0)
-    {
-        print("Error creating thread 3: %d", error);
-        return error;
-    }
-
-    // // Receive message from UI server
-    // char buffer[1024];
-    // uint16_t len = 0;
-    // while (state->state != STATE_EXIT)
-    // {
-    //     char c;
-    //     ssize_t bytes_read = read(pipe_read[0], &c, 1);
-    //     if (bytes_read == 0)
-    //     {
-    //         continue;
-    //     }
-
-    //     if (c == '\n')
-    //     {
-    //         buffer[len] = '\0';
-    //     }
-    //     else
-    //     {
-    //         buffer[len++] = c;
-    //         continue;
-    //     }
-
-    //     if (strcmp(buffer, "quit") == 0)
-    //     {
-    //         print("Quitting...");
-    //         state->state = STATE_EXIT;
-    //     }
-
-    //     else if (strcmp(buffer, "cali_low") == 0)
-    //     {
-    //         print("Calibrating low");
-    //         state->state = STATE_CALI_LOW;
-
-    //         // Reset low values
-    //         for (int i = 0; i < 16; i++)
-    //         {
-    //             state->sensor_low[i] = 0;
-    //         }
-    //     }
-
-    //     else if (strcmp(buffer, "cali_high") == 0)
-    //     {
-    //         print("Calibrating high");
-    //         motor_enable(false);
-    //         state->state = STATE_CALI_HIGH;
-
-    //         // Reset high values
-    //         for (int i = 0; i < 16; i++)
-    //         {
-    //             state->sensor_high[i] = 0;
-    //         }
-    //     }
-
-    //     else if (strcmp(buffer, "cali_save") == 0)
-    //     {
-    //         print("Saving calibration");
-    //         state->state = STATE_IDLE;
-    //         sensor_save_calibration();
-    //     }
-
-    //     else if (strcmp(buffer, "drive") == 0)
-    //     {
-    //         print("Driving");
-    //         drive_init();
-    //         state->state = STATE_DRIVE;
-    //     }
-
-    //     else if (strcmp(buffer, "idle") == 0)
-    //     {
-    //         print("Idling");
-    //         motor_enable(false);
-    //         state->speed = 0.0;
-    //         state->state = STATE_IDLE;
-    //     }
-
-    //     else
-    //     {
-    //         print("Unknown command: %s", buffer);
-    //     }
-    //     len = 0;
-    // }
 
     // Join threads
     pthread_join(threads[0], NULL);
