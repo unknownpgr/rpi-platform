@@ -1,0 +1,13 @@
+[Unit]
+Description=RPi-Integrated Application Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/ubuntu/app/build
+ExecStart=/home/ubuntu/app/build/app
+Restart=no
+
+[Install]
+WantedBy=multi-user.target 

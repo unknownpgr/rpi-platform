@@ -12,8 +12,11 @@ mkdir -p build
 cd build
 cmake ..
 make
+cd ..
 
-log "Start app"
-sudo ./app
+sudo cp app.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable app.service
+sudo systemctl restart app.service
 
 log "Done"
