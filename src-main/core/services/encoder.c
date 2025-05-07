@@ -1,19 +1,22 @@
 #include <services/encoder.h>
 
+#include <stdint.h>
+
+#include <state.h>
 #include <ports/dev.h>
+#include <ports/timer.h>
 
 #define ENCODER_L_A 19
 #define ENCODER_L_B 20
 #define ENCODER_R_A 21
 #define ENCODER_R_B 22
 
+static loop_t loop_encoder;
+
 static uint8_t prev_l = 0;
 static uint8_t prev_r = 0;
 
-static uint32_t count_l = 0;
-static uint32_t count_r = 0;
-
-static int diff_dict[16] = {
+static const int diff_dict[16] = {
     0,  // 00 -> 00 (stay)
     1,  // 00 -> 01
     -1, // 00 -> 10
@@ -32,42 +35,52 @@ static int diff_dict[16] = {
     0,  // 11 -> 11 (stay)
 };
 
-static int rotary_encoder_update(uint8_t last, uint8_t cur)
+static inline int rotary_encoder_update(uint8_t last, uint8_t cur)
 {
     uint8_t diff = (last << 2) | cur;
     return diff_dict[diff];
 }
 
-bool encoder_init()
+static void encoder_setup()
 {
     dev_gpio_set_mode(ENCODER_L_A, GPIO_FSEL_IN);
     dev_gpio_set_mode(ENCODER_L_B, GPIO_FSEL_IN);
     dev_gpio_set_mode(ENCODER_R_A, GPIO_FSEL_IN);
     dev_gpio_set_mode(ENCODER_R_B, GPIO_FSEL_IN);
-    return true;
+
+    state->encoder_left = 0;
+    state->encoder_right = 0;
+
+    loop_init(&loop_encoder, 1000); // 1us = 1MHz
 }
 
-void encoder_update()
+static void encoder_loop()
 {
-    bool la = dev_gpio_get_pin(ENCODER_L_A);
-    bool lb = dev_gpio_get_pin(ENCODER_L_B);
-    bool ra = dev_gpio_get_pin(ENCODER_R_A);
-    bool rb = dev_gpio_get_pin(ENCODER_R_B);
+    uint32_t dt_ns;
+    if (loop_update(&loop_encoder, &dt_ns))
+    {
+        bool la = dev_gpio_get_pin(ENCODER_L_A);
+        bool lb = dev_gpio_get_pin(ENCODER_L_B);
+        bool ra = dev_gpio_get_pin(ENCODER_R_A);
+        bool rb = dev_gpio_get_pin(ENCODER_R_B);
 
-    uint8_t cur_l = (la << 1) | lb;
-    uint8_t cur_r = (ra << 1) | rb;
+        uint8_t cur_l = (la << 1) | lb;
+        uint8_t cur_r = (ra << 1) | rb;
 
-    int diff_l = rotary_encoder_update(prev_l, cur_l);
-    int diff_r = rotary_encoder_update(prev_r, cur_r);
+        int diff_l = rotary_encoder_update(prev_l, cur_l);
+        int diff_r = rotary_encoder_update(prev_r, cur_r);
 
-    prev_l = cur_l;
-    prev_r = cur_r;
-    count_l += diff_l;
-    count_r += diff_r;
+        prev_l = cur_l;
+        prev_r = cur_r;
+
+        state->encoder_left += diff_l;
+        state->encoder_right += diff_r;
+    }
 }
 
-void encoder_get_counts(uint32_t *left, uint32_t *right)
-{
-    *left = count_l;
-    *right = count_r;
-}
+em_service_t service_encoder = {
+    .state_mask = EM_STATE_ALL,
+    .setup = encoder_setup,
+    .loop = encoder_loop,
+    .teardown = NULL,
+};

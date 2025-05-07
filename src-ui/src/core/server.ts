@@ -69,7 +69,7 @@ export class Server {
         this.notify({ type: "serverStatus", data: this.serverStatus });
         break;
       case "state":
-        this.state = data.data.state;
+        this.state = data.data;
         this.notify({ type: "state", data: this.state });
         break;
       case "input":

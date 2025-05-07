@@ -18,8 +18,10 @@ add_executable(
     
     src-main/entry.c
     src-main/main.c
+    src-main/core/em.c  
+    src-main/core/state.c
     
-    src-main/core/services/knob.c
+    # src-main/core/services/knob.c
     src-main/core/services/music.c
     src-main/core/services/radio.c
     src-main/core/services/sensor.c

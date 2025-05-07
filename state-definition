@@ -3,6 +3,7 @@ cali_low
 drvie
 
 ---
+state uint32
 
 sensor_low uint16[16]
 sensor_high uint16[16]

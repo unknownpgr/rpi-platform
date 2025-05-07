@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#include <state.h>
+
 #include <ports/dev.h>
 #include <ports/log.h>
 #include <ports/timer.h>
@@ -117,20 +119,6 @@ void sensor_load_calibration()
     print("Calibration loaded from %s", CALIBRATION_FILE);
 }
 
-void sensor_init()
-{
-    // Set GPIO mode
-    dev_spi_enable(true);
-
-    dev_gpio_set_mode(IR_S03, GPIO_FSEL_OUT);
-    dev_gpio_set_mode(IR_S02, GPIO_FSEL_OUT);
-    dev_gpio_set_mode(IR_S01, GPIO_FSEL_OUT);
-    dev_gpio_set_mode(IR_S00, GPIO_FSEL_OUT);
-    dev_gpio_set_mode(IR_SEN, GPIO_FSEL_OUT);
-
-    sensor_load_calibration();
-}
-
 void sensor_select(uint8_t sensor_index)
 {
     uint8_t s0 = sensor_index & 0b0001;
@@ -232,33 +220,92 @@ void sensor_read_one()
     }
 }
 
+void sensor_setup()
+{
+    // Set GPIO mode
+    dev_spi_enable(true);
+
+    dev_gpio_set_mode(IR_S03, GPIO_FSEL_OUT);
+    dev_gpio_set_mode(IR_S02, GPIO_FSEL_OUT);
+    dev_gpio_set_mode(IR_S01, GPIO_FSEL_OUT);
+    dev_gpio_set_mode(IR_S00, GPIO_FSEL_OUT);
+    dev_gpio_set_mode(IR_SEN, GPIO_FSEL_OUT);
+
+    sensor_load_calibration();
+}
+
 void sensor_loop()
 {
     sensor_read_one();
-    switch (state->state)
+}
+
+void sensor_setup_low()
+{
+    for (uint8_t i = 0; i < NUM_SENSORS; i++)
     {
-    case STATE_CALI_LOW:
-        for (uint8_t i = 0; i < NUM_SENSORS; i++)
-        {
-            uint16_t data = sensor_read_raw(i);
-            if (data > state->sensor_low[i])
-            {
-                state->sensor_low[i] = data;
-            }
-        }
-        break;
-    case STATE_CALI_HIGH:
-        for (uint8_t i = 0; i < NUM_SENSORS; i++)
-        {
-            uint16_t data = sensor_read_raw(i);
-            if (data > state->sensor_high[i])
-            {
-                state->sensor_high[i] = data;
-            }
-        }
-        break;
+        state->sensor_low[i] = 0;
     }
 }
+
+void sensor_loop_low()
+{
+    for (uint8_t i = 0; i < NUM_SENSORS; i++)
+    {
+        uint16_t data = sensor_read_raw(i);
+        if (data > state->sensor_low[i])
+        {
+            state->sensor_low[i] = data;
+        }
+    }
+}
+
+void sensor_setup_high()
+{
+    for (uint8_t i = 0; i < NUM_SENSORS; i++)
+    {
+        state->sensor_high[i] = 0;
+    }
+}
+
+void sensor_loop_high()
+{
+    for (uint8_t i = 0; i < NUM_SENSORS; i++)
+    {
+        uint16_t data = sensor_read_raw(i);
+        if (data > state->sensor_high[i])
+        {
+            state->sensor_high[i] = data;
+        }
+    }
+}
+
+void sensor_teardown()
+{
+    sensor_save_calibration();
+}
+
+em_service_t service_sensor = {
+    .state_mask = EM_STATE_ALL,
+    .setup = sensor_setup,
+    .loop = sensor_loop,
+    .teardown = NULL,
+};
+
+em_service_t service_sensor_low = {
+    .state_mask = EM_STATE_CALI_LOW,
+    .setup = sensor_setup_low,
+    .loop = sensor_loop_low,
+    .teardown = sensor_teardown,
+};
+
+em_service_t service_sensor_high = {
+    .state_mask = EM_STATE_CALI_HIGH,
+    .setup = sensor_setup_high,
+    .loop = sensor_loop_high,
+    .teardown = sensor_teardown,
+};
+
+// Functions below are currently not used.
 
 void sensor_print_bar(float bar_value)
 {

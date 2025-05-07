@@ -4,13 +4,18 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+#include <state.h>
+
 #include <ports/motor.h>
 #include <ports/log.h>
+#include <ports/timer.h>
+
 #include <services/encoder.h>
 #include <services/sensor.h>
 #include <services/vsense.h>
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
+#define NUM_SENSORS 16
 
 typedef struct
 {
@@ -66,7 +71,9 @@ static void tune_collect_motor_response(double *input, double *output, uint32_t 
     uint32_t previous_position = 0;
     uint32_t left, right;
 
-    encoder_get_counts(&left, &right);
+    left = state->encoder_left;
+    right = state->encoder_right;
+
     if (is_left)
     {
         previous_position = left;
@@ -97,7 +104,9 @@ static void tune_collect_motor_response(double *input, double *output, uint32_t 
 
             // Output
             {
-                encoder_get_counts(&left, &right);
+                left = state->encoder_left;
+                right = state->encoder_right;
+
                 if (is_left)
                 {
                     output[i] = (double)(int32_t)(left - previous_position);
@@ -279,6 +288,10 @@ static double line_find_position(double *sensor_values, double prev_position)
 #define MARK_BOTH 0x03
 #define MARK_CROSS 0x04
 
+#define TRACK_STRAIGHT 0x00
+#define TRACK_LEFT 0x01
+#define TRACK_RIGHT 0x02
+
 static double mark_threshold = 0.8;
 static uint8_t mark_state = STATE_NONE;
 static bool mark_is_left = false;
@@ -389,33 +402,8 @@ pid_control_t pid_right;
 loop_t loop_motor;
 loop_t loop_vsense;
 
-#define SENSOR_LOG_DIR "../data/sensor_history"
-#define SENSOR_HISTORY_SIZE 100000
-double *sensor_history = NULL;
-int sensor_history_index = -1;
-
-void drive_init()
+void drive_setup()
 {
-    if (sensor_history != NULL)
-    {
-        free(sensor_history);
-    }
-    sensor_history = (double *)malloc(SENSOR_HISTORY_SIZE * (NUM_SENSORS + 1) * sizeof(double));
-    // Check if malloc failed
-    if (sensor_history == NULL)
-    {
-        print("Failed to allocate sensor history.");
-        return;
-    }
-    else
-    {
-        print("Sensor history allocated.");
-    }
-    sensor_history_index = 0;
-
-    // Create ../data folder if it doesn't exist
-    mkdir(SENSOR_LOG_DIR, 0755);
-
     default_speed = 15;
     default_curvature = 1.5;
     acceleration = 20;
@@ -467,41 +455,6 @@ void drive_loop()
 {
     uint32_t dt_ns;
 
-    if (sensor_history_index < 0)
-    {
-        // Do nothing
-    }
-    else if (sensor_history_index < SENSOR_HISTORY_SIZE)
-    {
-        for (int i = 0; i < NUM_SENSORS; i++)
-        {
-            sensor_history[sensor_history_index * NUM_SENSORS + i] = state->sensor_data[i];
-        }
-        sensor_history[sensor_history_index * NUM_SENSORS + NUM_SENSORS] = timer_get_ns() / 1e9;
-        sensor_history_index++;
-    }
-    else
-    {
-        print("Sensor history full. Saving to file...");
-
-        // Save sensor data to file
-        char filename[100];
-        snprintf(filename, sizeof(filename), "%s/sensor_history-%d.txt", SENSOR_LOG_DIR, sensor_history_index);
-        FILE *file = fopen(filename, "w");
-        for (int i = 0; i < SENSOR_HISTORY_SIZE; i++)
-        {
-            for (int j = 0; j < NUM_SENSORS; j++)
-            {
-                fprintf(file, "%f ", sensor_history[i * NUM_SENSORS + j]);
-            }
-            fprintf(file, "\n");
-        }
-        fclose(file);
-
-        print("Sensor history saved to file %d", sensor_history_index);
-        sensor_history_index = -1;
-    }
-
     state->position = line_find_position(state->sensor_data, state->position);
     uint8_t mark = mark_state_machine(state->sensor_data, state->position);
 
@@ -537,7 +490,7 @@ void drive_loop()
     }
 
     // Motor control loop
-    if (loop_update(&loop_motor, &dt_ns) && state->state == STATE_DRIVE)
+    if (loop_update(&loop_motor, &dt_ns))
     {
         // Get dt (loop may not run at constant rate)
         double dt = dt_ns / 1e9;
@@ -583,3 +536,16 @@ void drive_loop()
         motor_set_velocity(motor_left_output, motor_right_output);
     }
 }
+
+void drive_teardown()
+{
+    motor_set_velocity(0, 0);
+    motor_enable(false);
+}
+
+em_service_t service_drive = {
+    .state_mask = EM_STATE_DRVIE,
+    .setup = drive_setup,
+    .loop = drive_loop,
+    .teardown = drive_teardown,
+};

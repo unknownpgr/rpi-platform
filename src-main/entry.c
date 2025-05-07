@@ -54,14 +54,6 @@ void init()
     }
     print("Motor initialized");
 
-    // Initialize encoder
-    if (!encoder_init())
-    {
-        print("Failed to initialize encoder");
-        exit(1);
-    }
-    print("Encoder initialized");
-
     // Set CPU governor to performance
     int fd = open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", O_WRONLY);
     if (fd != -1)

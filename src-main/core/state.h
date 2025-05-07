@@ -4,11 +4,16 @@
 
 #include <stdint.h>
 
-#define EM_STATE_CALIBRATION 0x02
-#define EM_STATE_DRVIE 0x04
+#define EM_STATE_HALT 0x00
+#define EM_STATE_IDLE 0x01
+#define EM_STATE_CALI_HIGH 0x02
+#define EM_STATE_CALI_LOW 0x04
+#define EM_STATE_DRVIE 0x08
+#define EM_STATE_ALL (~(uint32_t)(0))
 
 typedef struct
 {
+  uint32_t state;
   uint16_t sensor_low[16];
   uint16_t sensor_high[16];
   uint16_t sensor_raw[16];
@@ -22,4 +27,4 @@ typedef struct
 } state_t;
 
 void state_print_offsets(state_t *state, char *buffer);
-extern state_t state;
+extern state_t *state;

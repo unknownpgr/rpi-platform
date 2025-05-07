@@ -1,14 +1,7 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <state.h>
+#include <em.h>
 
-void sensor_init();
-void sensor_load_calibration();
-void sensor_save_calibration();
-void sensor_loop();
-
-void sensor_test_led();
-void sensor_test_raw();
-void sensor_test_calibration();
+extern em_service_t service_sensor;
+extern em_service_t service_sensor_low;
+extern em_service_t service_sensor_high;

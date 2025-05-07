@@ -8,6 +8,10 @@
     "log.h": "c",
     "clock.h": "c",
     "time.h": "c",
-    "em.h": "c"
+    "em.h": "c",
+    "stdlib.h": "c",
+    "encoder.h": "c",
+    "main.h": "c",
+    "old_main": "cpp"
   }
 }

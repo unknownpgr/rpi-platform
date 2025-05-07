@@ -1,8 +1,5 @@
 #pragma once
 
-#include <state.h>
-#include <stdint.h>
-#include <ports/timer.h>
+#include <em.h>
 
-void drive_init();
-void drive_loop();
+extern em_service_t service_drive;

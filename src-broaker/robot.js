@@ -1,4 +1,5 @@
 const fs = require("fs");
+const stateDefinition = require("./state-definition.json");
 
 const sharedMemoryPath = "/dev/shm/state";
 const sharedMemorySize = 4096;
@@ -46,26 +47,29 @@ class Robot {
 
   handleInput(input) {
     this.inputBuffer += input;
+    console.log(input);
 
     switch (this.status) {
       case STATUS_INITIALIZING: {
-        const index = this.inputBuffer.indexOf("--------");
+        const index = this.inputBuffer.indexOf("STATE_DEFINITION_END");
         if (index < 0) break;
 
-        this.mappingStructure = this.inputBuffer
-          .slice(0, index)
+        const parts = this.inputBuffer.split("STATE_DEFINITION_END");
+        const [_, definition] = parts[0].split("STATE_DEFINITION_START");
+
+        this.mappingStructure = definition
           .split("\n")
           .map((x) => x.trim())
           .filter((x) => x.length > 0)
           .map((x) => {
-            const [key, value, type] = x.split(":");
+            const [key, value] = x.split(":");
             return {
               key: key.split("."),
               offset: +value,
-              type: type,
+              type: stateDefinition[key],
             };
           });
-        this.inputBuffer = this.inputBuffer.slice(index + 9);
+        this.inputBuffer = parts[1];
         this.status = STATUS_INITIALIZED;
         break;
       }
@@ -98,13 +102,13 @@ class Robot {
     this.mappingStructure.forEach(({ key, offset, type }) => {
       let value;
       switch (type) {
-        case "uint8_t":
+        case "uint8":
           value = this.shmBuffer.readUInt8(offset);
           break;
-        case "uint16_t":
+        case "uint16":
           value = this.shmBuffer.readUInt16LE(offset);
           break;
-        case "uint32_t":
+        case "uint32":
           value = this.shmBuffer.readUInt32LE(offset);
           break;
         case "float":
@@ -116,7 +120,7 @@ class Robot {
         case "bool":
           value = this.shmBuffer.readUInt8(offset) !== 0;
           break;
-        case "uint16_t[16]":
+        case "uint16[16]":
           value = [];
           for (let i = 0; i < 16; i++) {
             value.push(this.shmBuffer.readUInt16LE(offset + i * 2));
