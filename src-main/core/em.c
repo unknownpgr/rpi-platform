@@ -66,17 +66,15 @@ static inline uint8_t em_get_phase(em_local_context_t *local_context)
   return is_global_changed | is_local_changed;
 }
 
-static inline void em_counter_up(em_local_context_t *local_context)
+static inline void em_counter_up(em_context_t *context)
 {
-  em_context_t *context = local_context->context;
   pthread_mutex_lock(&context->mutex);
   context->num_running_contexts++;
   pthread_mutex_unlock(&context->mutex);
 }
 
-static inline bool em_counter_down(em_local_context_t *local_context)
+static inline bool em_counter_down(em_context_t *context)
 {
-  em_context_t *context = local_context->context;
   pthread_mutex_lock(&context->mutex);
   context->num_running_contexts--;
   bool is_last = context->num_running_contexts == 0;
@@ -104,7 +102,7 @@ bool em_update(em_local_context_t *local_context)
       }
     }
     local_context->prev_state = local_context->curr_state; // Move to loop state
-    em_counter_up(local_context);
+    em_counter_up(local_context->context);
   }
   break;
   case PHASE_LOOP:
@@ -132,8 +130,8 @@ bool em_update(em_local_context_t *local_context)
         service->teardown();
       }
     }
-    local_context->prev_state = local_context->curr_state; // Move to intermission state
-    if (em_counter_down(local_context))
+    local_context->curr_state = context->curr_state; // Move to intermission state
+    if (em_counter_down(context))
     {
       context->prev_state = context->curr_state;
     }
