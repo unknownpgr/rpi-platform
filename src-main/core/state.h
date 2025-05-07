@@ -8,7 +8,8 @@
 #define EM_STATE_IDLE 0x01
 #define EM_STATE_CALI_HIGH 0x02
 #define EM_STATE_CALI_LOW 0x04
-#define EM_STATE_DRVIE 0x08
+#define EM_STATE_DRIVE 0x08
+#define EM_STATE_MUSIC 0x10
 #define EM_STATE_ALL (~(uint32_t)(0))
 
 typedef struct

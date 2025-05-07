@@ -519,7 +519,7 @@ void drive_teardown()
 }
 
 em_service_t service_drive = {
-    .state_mask = EM_STATE_DRVIE,
+    .state_mask = EM_STATE_DRIVE,
     .setup = drive_setup,
     .loop = drive_loop,
     .teardown = drive_teardown,
