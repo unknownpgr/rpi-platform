@@ -17,5 +17,5 @@ speed double
 battery_voltage double
 track uint8
 
-encoder_left uint32
-encoder_right uint32
+encoder_left int32
+encoder_right int32

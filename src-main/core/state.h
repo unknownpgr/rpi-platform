@@ -23,8 +23,8 @@ typedef struct
   double speed;
   double battery_voltage;
   uint8_t track;
-  uint32_t encoder_left;
-  uint32_t encoder_right;
+  int32_t encoder_left;
+  int32_t encoder_right;
 } state_t;
 
 void state_print_offsets(state_t *state, char *buffer);

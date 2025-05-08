@@ -46,142 +46,6 @@ static double pid_update(pid_control_t *pid, double current, double dt)
     return pid->kP * error + pid->kI * pid->error_accum + pid->kD * derivative;
 }
 
-static bool tune_pseudo_random_bit_sequence()
-{
-    // Implement pseudo-random binary sequence generator
-    static uint32_t a = 0x7FFFFFFF; // Seed value
-
-    // Implement PRBS-31 (x^31 + x^28 + 1)
-    uint32_t b = ((a >> 30) ^ (a >> 27)) & 1;
-    a = (a << 1) | b;
-    a &= 0x7FFFFFFF; // Keep it 31 bits
-    return b;
-}
-
-static void tune_collect_motor_response(double *input, double *output, uint32_t n, uint32_t dt_ns, bool is_left)
-{
-    double max_input = 5.0;
-
-    motor_enable(true);
-    motor_set_velocity(0, 0);
-
-    loop_t loop;
-    loop_init(&loop, dt_ns);
-
-    uint32_t previous_position = 0;
-    uint32_t left, right;
-
-    left = state->encoder_left;
-    right = state->encoder_right;
-
-    if (is_left)
-    {
-        previous_position = left;
-    }
-    else
-    {
-        previous_position = right;
-    }
-
-    uint32_t i = 0;
-    uint32_t _;
-
-    double input_value = 0.0;
-
-    while (true)
-    {
-        if (loop_update(&loop, &_))
-        {
-            if (i % 10 == 0)
-            {
-                input_value = tune_pseudo_random_bit_sequence() ? max_input : -max_input;
-                input_value /= state->battery_voltage;
-            }
-
-            // Output
-            {
-                left = state->encoder_left;
-                right = state->encoder_right;
-
-                if (is_left)
-                {
-                    output[i] = (double)(int32_t)(left - previous_position);
-                    previous_position = left;
-                }
-                else
-                {
-                    output[i] = (double)(int32_t)(right - previous_position);
-                    previous_position = right;
-                }
-            }
-
-            // Input
-            {
-                if (is_left)
-                {
-                    motor_set_velocity(input_value, 0);
-                }
-                else
-                {
-                    motor_set_velocity(0, input_value);
-                }
-                input[i] = input_value;
-            }
-
-            i++;
-            if (i >= n)
-            {
-                break;
-            }
-        }
-    }
-
-    // Stop motor
-    motor_set_velocity(0, 0);
-    motor_enable(false);
-}
-
-static void tune_collect()
-{
-    // System identification with ARX model
-    print("Tuning PID...");
-
-#define N 10000
-#define DT_NS 1000000 // 1ms
-#define ARX_ORDER 2
-
-    double u[N] = {0};
-    double v[N] = {0};
-
-    // Collect motor response of left motor
-    tune_collect_motor_response(u, v, N, DT_NS, true);
-
-    // Print results for left motor
-    printf("----------\n");
-    fflush(stdout);
-    for (uint32_t i = 0; i < N; i++)
-    {
-        printf("%f, %f\n", u[i], v[i]);
-        fflush(stdout);
-    }
-
-    printf("----------\n");
-    fflush(stdout);
-
-    // Collect motor response of right motor
-    tune_collect_motor_response(u, v, N, DT_NS, false);
-
-    // Print results for right motor
-    fflush(stdout);
-    for (uint32_t i = 0; i < N; i++)
-    {
-        printf("%f, %f\n", u[i], v[i]);
-        fflush(stdout);
-    }
-    printf("----------\n");
-    fflush(stdout);
-}
-
 static double line_mu(double distance)
 {
     double mu = 1 - 3 * ABS(distance);
@@ -192,20 +56,20 @@ static double line_mu(double distance)
     return mu;
 }
 
+#define NUM_POS_CANDIDATES 1000
 static double line_find_position(double *sensor_values, double prev_position)
 {
-#define NUM_CANDIDATES 1000
 
-    static double candidate_positions[NUM_CANDIDATES];
     static double sensor_positions[NUM_SENSORS];
+    static double candidate_positions[NUM_POS_CANDIDATES];
 
     // Initialize candidate positions and sensor positions
     static bool is_initialized = false;
     if (!is_initialized)
     {
-        for (int i = 0; i < NUM_CANDIDATES; i++)
+        for (int i = 0; i < NUM_POS_CANDIDATES; i++)
         {
-            candidate_positions[i] = i * 2.0 / (NUM_CANDIDATES - 1) - 1.0;
+            candidate_positions[i] = i * 2.0 / (NUM_POS_CANDIDATES - 1) - 1.0;
         }
         for (int i = 0; i < NUM_SENSORS; i++)
         {
@@ -241,7 +105,7 @@ static double line_find_position(double *sensor_values, double prev_position)
     double optimal_likelihood = 999999999;
     double optimal_position = 0;
 
-    for (int i = 0; i < NUM_CANDIDATES; i++)
+    for (int i = 0; i < NUM_POS_CANDIDATES; i++)
     {
         double candidate_position = candidate_positions[i];
         double likelihood = 0;
@@ -268,8 +132,8 @@ static double line_find_position(double *sensor_values, double prev_position)
     }
 
     return optimal_position;
+#undef NUM_POS_CANDIDATES
 #endif
-#undef CANDIDATES
 }
 
 #define STATE_NONE 0x00
@@ -430,7 +294,6 @@ void drive_setup()
 
     motor_set_velocity(0, 0);
     motor_enable(true);
-    timer_sleep_ns(100000000); // 100ms
 }
 
 void drive_loop()
@@ -465,51 +328,51 @@ void drive_loop()
     }
 
     // Motor control loop
-    if (loop_update(&loop_motor, &dt_ns))
+    if (!loop_update(&loop_motor, &dt_ns))
+        return;
+
+    // Get dt (loop may not run at constant rate)
+    double dt = dt_ns / 1e9;
+
+    // Update PID targets based on position
+    pid_left.target = -state->speed * (1.0 + state->position * default_curvature);
+    pid_right.target = state->speed * (1.0 - state->position * default_curvature);
+
+    // Update speed
+    if (state->speed < default_speed)
     {
-        // Get dt (loop may not run at constant rate)
-        double dt = dt_ns / 1e9;
-
-        // Update PID targets based on position
-        pid_left.target = -state->speed * (1.0 + state->position * default_curvature);
-        pid_right.target = state->speed * (1.0 - state->position * default_curvature);
-
-        // Update speed
+        state->speed += acceleration * dt;
+        if (state->speed > default_speed)
+        {
+            state->speed = default_speed;
+        }
+    }
+    else if (state->speed > default_speed)
+    {
+        state->speed -= acceleration * dt;
         if (state->speed < default_speed)
         {
-            state->speed += acceleration * dt;
-            if (state->speed > default_speed)
-            {
-                state->speed = default_speed;
-            }
+            state->speed = default_speed;
         }
-        else if (state->speed > default_speed)
-        {
-            state->speed -= acceleration * dt;
-            if (state->speed < default_speed)
-            {
-                state->speed = default_speed;
-            }
-        }
-
-        // Calculate speed
-        double speed_left = (state->encoder_left - encoer_left_prev) / 4096.0 / dt;
-        double speed_right = (state->encoder_right - encoder_right_prev) / 4096.0 / dt;
-
-        // Update previous encoder value
-        encoer_left_prev = state->encoder_left;
-        encoder_right_prev = state->encoder_right;
-
-        // Calculate PID
-        double pid_left_output = pid_update(&pid_left, speed_left, dt);
-        double pid_right_output = pid_update(&pid_right, speed_right, dt);
-
-        // Update motor speed
-        double motor_left_output = pid_left_output / state->battery_voltage;
-        double motor_right_output = pid_right_output / state->battery_voltage;
-
-        motor_set_velocity(motor_left_output, motor_right_output);
     }
+
+    // Calculate speed
+    double speed_left = (state->encoder_left - encoer_left_prev) / 4096.0 / dt;
+    double speed_right = (state->encoder_right - encoder_right_prev) / 4096.0 / dt;
+
+    // Update previous encoder value
+    encoer_left_prev = state->encoder_left;
+    encoder_right_prev = state->encoder_right;
+
+    // Calculate PID
+    double pid_left_output = pid_update(&pid_left, speed_left, dt);
+    double pid_right_output = pid_update(&pid_right, speed_right, dt);
+
+    // Update motor speed
+    double motor_left_output = pid_left_output / state->battery_voltage;
+    double motor_right_output = pid_right_output / state->battery_voltage;
+
+    motor_set_velocity(motor_left_output, motor_right_output);
 }
 
 void drive_teardown()

@@ -76,6 +76,8 @@ def to_c_type(type):
         return "uint32_t"
     elif type == "double":
         return "double"
+    elif type == "int32":
+        return "int32_t"
     else:
         print(f"Unknown type: {type}")
         exit(1)
