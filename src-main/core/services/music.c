@@ -23,7 +23,7 @@ uint8_t *music_data = NULL;
 uint32_t last_time;
 uint32_t file_size;
 
-void music_setup()
+static void music_setup()
 {
     // Initialze filter
     filtered = 0;
@@ -67,7 +67,7 @@ void music_setup()
     uint32_t last_time = timer_get_ns();
 }
 
-void music_play()
+static void music_play()
 {
     if (i >= file_size)
     {
@@ -94,7 +94,7 @@ void music_play()
     }
 }
 
-void music_teardown()
+static void music_teardown()
 {
     // Disable motor
     motor_set_velocity(0, 0);

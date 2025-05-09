@@ -5,7 +5,7 @@
 #include <ports/dev.h>
 #include <ports/timer.h>
 
-float vsense_read()
+static float vsense_read()
 {
     uint8_t address[2] = {1 << 3, 1 << 3};
     uint8_t data[2];
@@ -19,14 +19,14 @@ float vsense_read()
 
 loop_t loop_vsense;
 
-void vsense_setup()
+static void vsense_setup()
 {
     dev_spi_enable(true);
     loop_init(&loop_vsense, 100000000); // 100ms
     state->battery_voltage = vsense_read();
 }
 
-void vsense_loop()
+static void vsense_loop()
 {
     // VSense loop
     uint32_t dt_ns = 0;
