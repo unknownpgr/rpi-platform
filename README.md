@@ -2,17 +2,35 @@
 
 Clean-Architecture based, almost pure C project for Raspberry Pi based real time robotics applications.
 
-## Requirements
+## System Requirements
 
-- Raspberry Pi 3 with OS installed.
+- Raspberry Pi 3 B+ with Ubuntu Server 22.04 LTS installed.
+  - Other versions of Raspberry Pi or Ubuntu may work, but are not tested.
 - Keyfile based SSH access configured.
 - CMake installed on Raspberry Pi.
 
-## How `upload.sh` works
+## How to Upload the Code to the Raspberry Pi
 
-1. The script will copy the contents of this directory to the Raspberry Pi.
-2. Then it will run `run.sh` script on the Raspberry Pi.
-3. The `run.sh` script will build the project and run it.
+What you need to do is just run the `upload.sh` script. This script will do the following things:
+
+1. Copy the contents of this directory to the Raspberry Pi.
+2. Run `run.sh` script on the Raspberry Pi.
+
+The `run.sh` script will build the project and set up a systemd service to run the application. Specifically, it will:
+
+1. Create a build directory and compile the project using CMake
+2. Install the application as a systemd service
+3. Enable and start the service to run the application automatically
+
+## Required Configurations
+
+Edit the `/boot/firmware/cmdline.txt` file to include the following settings:
+
+```
+console=serial0,115200 multipath=off dwc_otg.lpm_enable=0 console=tty1 root=LABEL=writable rootfstype=ext4 rootwait fixrtc isolcpus=2,3 quiet loglevel=5 logo.nologo
+```
+
+The most important part is the `isolcpus=2,3` setting. This isolates the CPU cores to the application, which is necessary for real-time performance.
 
 ## Recommended Configurations
 
@@ -32,6 +50,8 @@ PrintMotd no
 UseDNS no
 AcceptEnv LANG LC_*
 ```
+
+**Warning: This configuration will disable password authentication.**
 
 ### System Configuration
 
@@ -85,14 +105,6 @@ dtoverlay=dwc2,dr_mode=host
 [all]
 ```
 
-#### Boot Configuration
-
-Edit the `/boot/firmware/cmdline.txt` file to include the following settings:
-
-```
-console=serial0,115200 multipath=off dwc_otg.lpm_enable=0 console=tty1 root=LABEL=writable rootfstype=ext4 rootwait fixrtc isolcpus=3,2 quiet loglevel=5 logo.nologo
-```
-
 #### Boot Time Analysis
 
 Before the optimization, the boot time was around 2 minutes and 7 seconds.
@@ -110,7 +122,7 @@ Startup finished in 9.801s (kernel) + 12.304s (userspace) = 22.105s
 graphical.target reached after 12.237s in userspace
 ```
 
-## Useful References
+## References
 
 - [BCM2835 ARM Peripherals](https://www.raspberrypi.org/documentation/hardware/raspberrypi/bcm2835/README.md)
 - [AXI Monitor](https://forums.raspberrypi.com/viewtopic.php?p=1664415)
