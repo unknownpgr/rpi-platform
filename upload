@@ -134,7 +134,8 @@ def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=False)
     subparsers.add_parser("reset", help="Reset target directory before upload")
-    subparsers.add_parser("install", help="Install app on target")
+    subparsers.add_parser("install", help="NOTE: this command is intended to be run on the current machine. It will install the app on the CURRENT machine.")
+
     args = parser.parse_args()
 
     try:

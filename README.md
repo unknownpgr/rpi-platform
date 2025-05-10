@@ -2,25 +2,15 @@
 
 A Clean Architecture-based, nearly pure C project for real-time robotics applications on Raspberry Pi.
 
+The goal of this project is to demonstrate that real-time control with high precision (e.g., on the order of several microseconds), typically considered infeasible on a general-purpose operating system, is in fact achievable.
+
 ## System Requirements
 
 - Raspberry Pi 3 B+ with Ubuntu Server 22.04 LTS installed.
-  - Other versions of Raspberry Pi or Ubuntu may work but have not been tested.
+  - Other versions of Raspberry Pi or OS may work but have not been tested.
 - SSH access configured with a key file.
+  - Required for automated uploading of code.
 - CMake installed on the Raspberry Pi.
-
-## How to Upload the Code to the Raspberry Pi
-
-Simply run the `upload` script. This script performs the following actions:
-
-1. Copies the contents of this directory to the Raspberry Pi.
-2. Executes the `run.sh` script on the Raspberry Pi.
-
-The `run.sh` script builds the project and sets up a systemd service to run the application. Specifically, it will:
-
-1. Create a build directory and compile the project using CMake.
-2. Install the application as a systemd service.
-3. Enable and start the service so that the application runs automatically.
 
 ## Required Configurations
 
@@ -30,7 +20,28 @@ Edit the `/boot/firmware/cmdline.txt` file to include the following settings:
 console=serial0,115200 multipath=off dwc_otg.lpm_enable=0 console=tty1 root=LABEL=writable rootfstype=ext4 rootwait fixrtc isolcpus=2,3 quiet loglevel=5 logo.nologo
 ```
 
-The most critical setting is `isolcpus=2,3`, which isolates CPU cores for the application—this is essential for real-time performance.
+The most critical setting is `isolcpus=2,3`, which isolates CPU cores for the application—this is essential for real-time performance. `quiet loglevel=5 logo.nologo` is optional, but recommended to reduce boot time.
+
+## How to Upload the Code to the Raspberry Pi
+
+Simply run the `upload` script. This script performs the following actions:
+
+1. Prompts for target hostname and path if not previously configured
+2. Uses `rsync` to copy files to the target Raspberry Pi, excluding files listed in `config/.rsyncignore`
+3. Executes the installation process on the Raspberry Pi
+
+The installation process:
+
+1. Creates a build directory and compiles the project using CMake
+2. Copies the systemd service file to `/etc/systemd/system/`
+3. Reloads the systemd daemon
+4. Enables the service to run on startup
+5. Restarts the service
+6. Syncs the filesystem to ensure changes are written
+
+You can also:
+
+- Use `./upload reset` to clean the target directory before uploading
 
 ## Recommended Configurations
 
@@ -51,7 +62,7 @@ UseDNS no
 AcceptEnv LANG LC_*
 ```
 
-**Warning: This configuration disables password authentication.**
+**Warning: This configuration disables password authentication. If you are using password authentication, make sure to generate a key pair and add the public key to the Raspberry Pi's `~/.ssh/authorized_keys` file.**
 
 ### System Configuration
 
@@ -73,7 +84,7 @@ sudo systemctl disable hciuart.service                      # Disable Bluetooth
 
 #### Kernel Configuration
 
-Edit the /boot/firmware/config.txt file with the following content:
+Edit the `/boot/firmware/config.txt` file with the following content:
 
 ```
 [all]
@@ -105,7 +116,7 @@ dtoverlay=dwc2,dr_mode=host
 [all]
 ```
 
-#### Boot Time Analysis
+## Boot Time Analysis
 
 Before optimization, the boot time was approximately 2 minutes and 7 seconds:
 
