@@ -13,9 +13,9 @@
 #include <ports/dev.h>
 #include <ports/log.h>
 
-#define BCM2835_PERI_BASE 0x3F000000              // 라즈베리파이 4 기준
-#define CLOCK_BASE (BCM2835_PERI_BASE + 0x101000) // Clock 레지스터 주소
-#define GPIO_BASE (BCM2835_PERI_BASE + 0x200000)  // GPIO 주소
+#define BCM2835_PERI_BASE 0x3F000000              // Raspberry Pi 3
+#define CLOCK_BASE (BCM2835_PERI_BASE + 0x101000) // Clock register address
+#define GPIO_BASE (BCM2835_PERI_BASE + 0x200000)  // GPIO register address
 
 void radio_play(char *music_file_path)
 {
@@ -54,8 +54,8 @@ void radio_play(char *music_file_path)
             float current_value = ((music_data[i]) / 255.f) - 0.5f; // Convert uint8_t to float
             i++;
 
-            double deviation = (current_value) * 750000; // 25kHz 변조
-            double freq = 100e6 + deviation;             // 100MHz 중심 주파수
+            double deviation = (current_value) * 750000; // 25kHz modulation
+            double freq = 100e6 + deviation;             // 100MHz carrier frequency
             double divisor = 500e6 / freq;               // 500MHz / freq
 
             uint32_t divisor_integer = divisor * (1 << 20);

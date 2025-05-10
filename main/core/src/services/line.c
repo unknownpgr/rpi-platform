@@ -77,8 +77,8 @@ static void line_loop_bayesian()
     for (int j = 0; j < NUM_SENSORS; j++)
     {
       double tmp = state->sensor_data[j] - line_mu(candidate_position - sensor_positions[j]);
-      // tmp는 예측값과 실제 값의 차이다. 즉, 그 절댓값이 클수록 예측값과 실제 값이 다르다는 의미다.
-      // 따라서 이 값을 최소화하는 곳을 찾아야 한다.
+      // tmp is the difference between the predicted value and the actual value.
+      // Therefore, we need to find the place that minimizes this value.
       likelihood += tmp * tmp;
     }
 

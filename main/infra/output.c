@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <errno.h>
 
-// 재귀적으로 디렉토리 생성
+// Recursively create a directory
 int mkdir_recursive(const char *path, mode_t mode)
 {
   char temp[1024];
@@ -14,11 +14,11 @@ int mkdir_recursive(const char *path, mode_t mode)
   snprintf(temp, sizeof(temp), "%s", path);
   size_t len = strlen(temp);
 
-  // 마지막에 '/'가 있으면 제거
+  // If the last character is '/' remove it
   if (temp[len - 1] == '/')
     temp[len - 1] = '\0';
 
-  // 하나씩 디렉토리 생성
+  // Create a directory one by one
   char *p = NULL;
   for (p = temp + 1; *p; p++)
   {
@@ -37,7 +37,7 @@ int mkdir_recursive(const char *path, mode_t mode)
     }
   }
 
-  // 마지막 디렉토리 생성
+  // Create the last directory
   if (mkdir(temp, mode) != 0)
   {
     if (errno != EEXIST)

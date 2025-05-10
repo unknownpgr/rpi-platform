@@ -38,36 +38,28 @@ elif filter_mode == "median":
 
 threshold = 0.1
 
-# 그래프 설정
 fig, ax = plt.subplots()
 (line,) = ax.plot([], [])
 (binary_line,) = ax.plot([], [])
 ax.axhline(threshold, color="red", linestyle="--")
-ax.set_xlim(0, 15)  # 0부터 15까지의 x축 범위
-ax.set_ylim(
-    sensor_history.min(), sensor_history.max()
-)  # y축 범위는 데이터의 최소/최대값으로 설정
+ax.set_xlim(0, 15)
+ax.set_ylim(sensor_history.min(), sensor_history.max())
 ax.set_xlabel("Sensor Index")
 ax.set_ylabel("Value")
 ax.set_title("Sensor Data Animation")
 
-# 프레임 카운터 텍스트 추가
 frame_text = ax.text(0.02, 0.95, "", transform=ax.transAxes)
 
 
-# 애니메이션 함수
 def update(frame):
-    x = np.arange(16)  # 0부터 15까지의 x값
-    y = sensor_history[frame]  # 현재 프레임의 데이터
+    x = np.arange(16)
+    y = sensor_history[frame]
     line.set_data(x, y)
     binary_line.set_data(x, y > threshold)
     frame_text.set_text(f"Frame: {frame}/{len(sensor_history)-1}")
     return (line, binary_line, frame_text)
 
 
-# 애니메이션 생성
-ani = FuncAnimation(
-    fig, update, frames=len(sensor_history), interval=1, blit=True
-)  # 1ms 간격으로 업데이트
+ani = FuncAnimation(fig, update, frames=len(sensor_history), interval=1, blit=True)
 
 plt.show()
