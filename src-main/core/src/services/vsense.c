@@ -14,7 +14,7 @@ static float vsense_read()
     // Read ADC value
     dev_spi_transfer(address, data, sizeof(data));
     uint16_t adc = (((uint16_t)(data[0])) & 0b1111) << 8 | data[1];
-    return adc * 0.01926f;
+    return adc * 0.01926f; // Experimentally determined constant
 }
 
 loop_t loop_vsense;
@@ -33,7 +33,7 @@ static void vsense_loop()
     if (loop_update(&loop_vsense, &dt_ns))
     {
         // Update vsense value with IIR filter
-        state->battery_voltage = state->battery_voltage * 0.99 + vsense_read() * 0.01;
+        state->battery_voltage = state->battery_voltage * 0.95 + vsense_read() * 0.05;
     }
 }
 

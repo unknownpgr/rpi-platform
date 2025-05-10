@@ -10,8 +10,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 # Enable POSIX
 add_compile_definitions(_POSIX_C_SOURCE=200809L)
 
-include_directories(src-main/core/interfaces)
-include_directories(src-main/core)
+include_directories(src-main/core/include)
 
 add_executable(
     app
@@ -22,14 +21,17 @@ add_executable(
     src-main/core/state.c
     
     # src-main/core/services/knob.c
-    src-main/core/services/music.c
-    src-main/core/services/radio.c
-    src-main/core/services/sensor.c
-    src-main/core/services/drive.c
-    src-main/core/services/vsense.c
-    src-main/core/services/imu.c
-    src-main/core/services/clock.c
-    src-main/core/services/encoder.c
+    src-main/core/src/services/music.c
+    src-main/core/src/services/radio.c
+    src-main/core/src/services/sensor.c
+    src-main/core/src/services/drive.c
+    src-main/core/src/services/vsense.c
+    src-main/core/src/services/imu.c
+    src-main/core/src/services/clock.c
+    src-main/core/src/services/encoder.c
+
+    src-main/core/src/algorithms/mark.c
+    src-main/core/src/algorithms/pid.c
     
     src-main/infra/dev.c
     src-main/infra/log.c

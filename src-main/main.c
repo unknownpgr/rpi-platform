@@ -246,7 +246,7 @@ int application_start()
             }
             else if (strcmp(buffer, "drive") == 0)
             {
-                em_set_state(&em_context, EM_STATE_MUSIC);
+                em_set_state(&em_context, EM_STATE_DRIVE);
             }
             else if (strcmp(buffer, "idle") == 0)
             {
