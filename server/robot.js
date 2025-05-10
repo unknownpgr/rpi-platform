@@ -22,9 +22,6 @@ class Robot {
   }
 
   initialize() {
-    // Configure stdin handler
-    process.stdin.on("data", (data) => this.handleInput(data.toString()));
-
     // Connect to shared memory
     try {
       this.shmFd = fs.openSync(sharedMemoryPath, "r+");
@@ -39,7 +36,13 @@ class Robot {
     }
 
     // Setup pipe
-    this.pipeFd = +process.argv[2];
+    const [readPipeFd, writePipeFd] = process.argv[2].split(",");
+    this.readPipeFd = +readPipeFd;
+    this.writePipeFd = +writePipeFd;
+
+    // Configure read pipe handler
+    const readStream = fs.createReadStream(null, { fd: this.readPipeFd });
+    readStream.on("data", (data) => this.handleInput(data.toString()));
 
     // Setup state change handler
     setInterval(() => this.handleStateChange(), 100);
@@ -169,7 +172,7 @@ class Robot {
 
   sendCommand(command) {
     if (this.status !== STATUS_INITIALIZED) return;
-    fs.writeSync(this.pipeFd, command + "\n");
+    fs.writeSync(this.writePipeFd, command + "\n");
   }
 }
 
