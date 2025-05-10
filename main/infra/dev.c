@@ -6,9 +6,14 @@
 #include <sys/mman.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <time.h>
+#include <sys/ioctl.h>
+#include <stdatomic.h>
+
+#if defined(__linux__)
 #include <linux/spi/spidev.h>
 #include <linux/i2c-dev.h>
-#include <sys/ioctl.h>
+#endif
 
 #include <ports/log.h>
 
@@ -160,6 +165,20 @@ static void print_binary(uint32_t data)
     printf("%s", binary);
 }
 
+static inline void barrier()
+{
+    // Add barrier to prevent instruction reordering
+    atomic_thread_fence(memory_order_seq_cst);
+}
+
+static void sleep_us(uint32_t us)
+{
+    struct timespec ts;
+    ts.tv_sec = us / 1000000;
+    ts.tv_nsec = (us % 1000000) * 1000;
+    nanosleep(&ts, NULL);
+}
+
 static uint32_t *get_map(int memfd, uint32_t base, uint32_t size)
 {
     uint32_t *map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, memfd, base);
@@ -207,6 +226,7 @@ bool dev_init()
     close(memfd);
 
     // Initialize SPI
+#if defined(__linux__)
     {
         spi_fd = open("/dev/spidev0.0", O_RDWR);
         if (spi_fd < 0)
@@ -256,6 +276,7 @@ bool dev_init()
             return false;
         }
     }
+#endif
 
     return true;
 }
@@ -269,8 +290,10 @@ void dev_gpio_set_mode(uint32_t pin, uint32_t mode)
     uint32_t shift = (pin % 10) * 3;
     uint32_t mask = 0b111 << shift;
     uint32_t *reg = gpio_base + GPIO_FSEL_OFFSET / 4 + index;
-    *reg &= ~mask;
-    *reg |= (mode << shift);
+    uint32_t value = *reg;
+    value &= ~mask;
+    value |= (mode << shift);
+    *reg = value;
 }
 
 void dev_gpio_set_pull(uint32_t pin, uint32_t pull)
@@ -284,10 +307,13 @@ void dev_gpio_set_pull(uint32_t pin, uint32_t pull)
 
     // Refer to the BCM2835 datasheet, page 101
     *reg_pud = pull;               // Set pull up/down
-    usleep(1);                     // Wait for 150 cycles
+    barrier();                     // Prevent instruction reordering
+    sleep_us(1);                   // Wait for 150 cycles
     *reg_pudclk = 1 << (pin % 32); // Assert clock
-    usleep(1);                     // Wait for 150 cycles
+    barrier();                     // Prevent instruction reordering
+    sleep_us(1);                   // Wait for 150 cycles
     *reg_pud = 0;                  // Remove pull up/down
+    barrier();                     // Prevent instruction reordering
     *reg_pudclk = 0;               // Remove clock
 }
 
@@ -358,6 +384,7 @@ void dev_pwm_enable(uint32_t channel, bool enable)
         *cm_ctl = PASSWORD | *cm_ctl & ~(0b11 << 9); // Set MASH to 0
         *cm_ctl = PASSWORD | *cm_ctl | 6;            // Set clock source to PLLD per (500MHz)
         *cm_ctl = PASSWORD | *cm_ctl | (1 << 4);     // Turn on enable flag
+        barrier();                                   // Prevent instruction reordering
         WAIT(!(*cm_ctl & (1 << 7)));                 // Wait for clock to be turned on
 
         // Therefore it would configure the PWM clock to 500MHz / 25 = 20MHz
@@ -453,6 +480,7 @@ void dev_spi_enable(bool enable)
 
 void dev_spi_transfer(uint8_t *tx, uint8_t *rx, uint32_t len)
 {
+#if defined(__linux__)
     spi_transfer.tx_buf = (unsigned long)tx;
     spi_transfer.rx_buf = (unsigned long)rx;
     spi_transfer.len = len;
@@ -462,6 +490,7 @@ void dev_spi_transfer(uint8_t *tx, uint8_t *rx, uint32_t len)
         close(spi_fd);
         return;
     }
+#endif
 }
 
 // I2C
@@ -482,6 +511,7 @@ void dev_i2c_enable(bool enable)
 
 bool dev_i2c_read_register(uint8_t addr, uint8_t reg, uint8_t *rx, uint32_t len)
 {
+#if defined(__linux__)
     if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0)
     {
         perror("Failed to set I2C slave address");
@@ -501,10 +531,12 @@ bool dev_i2c_read_register(uint8_t addr, uint8_t reg, uint8_t *rx, uint32_t len)
     }
 
     return true;
+#endif
 }
 
 bool dev_i2c_write_register(uint8_t addr, uint8_t reg, uint8_t *tx, uint32_t len)
 {
+#if defined(__linux__)
     if (ioctl(i2c_fd, I2C_SLAVE, addr) < 0)
     {
         perror("Failed to set I2C slave address");
@@ -525,4 +557,5 @@ bool dev_i2c_write_register(uint8_t addr, uint8_t reg, uint8_t *tx, uint32_t len
     }
 
     return true;
+#endif
 }

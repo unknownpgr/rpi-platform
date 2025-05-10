@@ -81,7 +81,6 @@ def upload():
             "rsync",
             "--exclude-from=config/.rsyncignore",
             "-avz",
-            "--delete",
             ".",
             f"{target}:{target_path}",
         ]
@@ -100,15 +99,15 @@ def install():
     log("Building app")
     os.makedirs("build", exist_ok=True)
     os.chdir("build")
-    subprocess.run(["cmake", ".."])
-    subprocess.run(["make"])
+    subprocess.run(["cmake", ".."], check=True)
+    subprocess.run(["make"], check=True)
     os.chdir("..")
 
     log("Installing app")
-    subprocess.run(["sudo", "cp", "config/app.service", "/etc/systemd/system/"])
-    subprocess.run(["sudo", "systemctl", "daemon-reload"])
-    subprocess.run(["sudo", "systemctl", "enable", "app.service"])
-    subprocess.run(["sudo", "systemctl", "restart", "app.service"])
+    subprocess.run(["sudo", "cp", "config/app.service", "/etc/systemd/system/"], check=True)
+    subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
+    subprocess.run(["sudo", "systemctl", "enable", "app.service"], check=True)
+    subprocess.run(["sudo", "systemctl", "restart", "app.service"], check=True)
 
 
 def main():

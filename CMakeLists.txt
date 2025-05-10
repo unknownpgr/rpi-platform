@@ -10,15 +10,15 @@ set(CMAKE_C_EXTENSIONS OFF)
 # Enable POSIX
 add_compile_definitions(_POSIX_C_SOURCE=200809L)
 
-include_directories(src-main/core/include)
+include_directories(main/core/include)
 
 add_executable(
     app
     
     main/entry.c
     main/main.c
-    main/core/em.c  
-    main/core/state.c
+    main/core/src/em.c  
+    main/core/src/state.c
     
     # main/core/services/knob.c
     main/core/src/services/music.c

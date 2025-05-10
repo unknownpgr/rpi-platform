@@ -68,11 +68,9 @@ void drive_setup()
 void drive_loop()
 {
     uint32_t dt_ns;
+    uint8_t current_mark = mark_state_machine(&mark, state->sensor_data, state->position);
 
-    state->position = line_find_position(state->sensor_data, state->position);
-    uint8_t mark = mark_state_machine(&mark, state->sensor_data, state->position);
-
-    switch (mark)
+    switch (current_mark)
     {
     case MARK_LEFT:
         print("MARK_LEFT");

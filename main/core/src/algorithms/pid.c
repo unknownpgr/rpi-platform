@@ -1,6 +1,6 @@
 #include <algorithms/pid.h>
 
-static void pid_init(pid_control_t *pid)
+void pid_init(pid_control_t *pid)
 {
   pid->kP = 0.0;
   pid->kI = 0.0;
@@ -10,7 +10,7 @@ static void pid_init(pid_control_t *pid)
   pid->error_accum = 0.0;
 }
 
-static double pid_update(pid_control_t *pid, double current, double dt)
+double pid_update(pid_control_t *pid, double current, double dt)
 {
   double error = pid->target - current;
   pid->error_accum += error * dt;
