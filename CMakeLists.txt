@@ -15,7 +15,6 @@ include_directories(main/core/include)
 add_executable(
     app
     
-    main/entry.c
     main/main.c
     main/core/src/em.c  
     main/core/src/state.c
