@@ -29,7 +29,7 @@ add_executable(
     main/core/src/services/imu.c
     main/core/src/services/clock.c
     main/core/src/services/encoder.c
-
+    main/core/src/services/line.c
     main/core/src/algorithms/mark.c
     main/core/src/algorithms/pid.c
     

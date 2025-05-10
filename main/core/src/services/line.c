@@ -1,4 +1,4 @@
-#include <line.h>
+#include <services/line.h>
 
 #include <state.h>
 
@@ -55,8 +55,7 @@ static void line_loop_weighted_sum()
     return;
   }
 
-  double expected_position = weighted_sum / weight_sum;
-  return expected_position;
+  state->position = weighted_sum / weight_sum;
 }
 
 static void line_loop_bayesian()
@@ -90,7 +89,7 @@ static void line_loop_bayesian()
     }
   }
 
-  return optimal_position;
+  state->position = optimal_position;
 }
 
 em_service_t service_line = {
