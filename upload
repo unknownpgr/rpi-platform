@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import subprocess
+import json
+import argparse
+
+target = None
+target_path = None
+
+
+def log(message):
+    # Set terminal color to green
+    print("\033[1;32m" + message + "\033[0m")
+
+
+def check():
+    # Check if rsync is installed
+    try:
+        subprocess.run(["rsync", "--version"], stdout=subprocess.DEVNULL, check=True)
+    except:
+        log("rsync is not installed. Please install it first.")
+        sys.exit(1)
+
+
+def config():
+    global target
+    global target_path
+
+    # Check if connection.json.tmp exists
+    try:
+        with open("config/connection.json.tmp", "r") as f:
+            config = json.load(f)
+            target = config["target"]
+            target_path = config["target_path"]
+        log("Config loaded from connection.json.tmp")
+        return
+    except:
+        pass
+
+    if target is None:
+        while True:
+            target = input("Enter target: ")
+            target = target.strip()
+            if target == "":
+                print("Target is empty. Please try again.")
+                continue
+            confirm = input("Target: " + target + ". Confirm? (Y/n): ")
+            if confirm.lower() in ["y", "yes", ""]:
+                break
+            else:
+                print("Target is not confirmed. Please try again.")
+
+    if target_path is None:
+        while True:
+            target_path = input("Enter target path: ")
+            target_path = target_path.strip()
+            if target_path == "":
+                print("Target path is empty. Please try again.")
+                continue
+            confirm = input("Target path: " + target_path + ". Confirm? (Y/n): ")
+            if confirm.lower() in ["y", "yes", ""]:
+                break
+            else:
+                print("Target path is not confirmed. Please try again.")
+
+    with open("config/connection.json.tmp", "w") as f:
+        json.dump({"target": target, "target_path": target_path}, f)
+
+    log("Config saved to connection.json.tmp")
+    print("Target: " + target)
+    print("Target path: " + target_path)
+    log("NOTE: to reset config, delete connection.json.tmp")
+
+
+def upload(reset=False):
+    log(f"Uploading files to {target}:{target_path}")
+    if reset:
+        subprocess.run(
+            [
+                "rsync",
+                "--exclude-from=config/.rsyncignore",
+                "-avz",
+                "--delete",
+                ".",
+                f"{target}:{target_path}",
+            ]
+        )
+    else:
+        subprocess.run(
+            [
+                "rsync",
+                "--exclude-from=config/.rsyncignore",
+                "-avz",
+                ".",
+                f"{target}:{target_path}",
+            ]
+        )
+
+
+def execute():
+    log(f"Executing run.sh on {target}")
+    subprocess.run(["ssh", "-t", target, f"{target_path}/upload", "install"])
+
+
+def install():
+    '''
+    Note: this function will be executed on the target machine
+    '''
+    log("Building app")
+    os.makedirs("build", exist_ok=True)
+    os.chdir("build")
+    subprocess.run(["cmake", ".."], check=True)
+    subprocess.run(["make"], check=True)
+    os.chdir("..")
+
+    log("Installing app")
+    subprocess.run(["sudo", "cp", "config/app.service", "/etc/systemd/system/"], check=True)
+    log("Reloading systemd")
+    subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
+    log("Enabling app")
+    subprocess.run(["sudo", "systemctl", "enable", "app.service"], check=True)
+    log("Restarting app")
+    subprocess.run(["sudo", "systemctl", "restart", "app.service"], check=True)
+    log("Syncing filesystem")
+    subprocess.run(["sudo", "sync"], check=True)
+
+
+def main():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_dir)
+
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command", required=False)
+    subparsers.add_parser("reset", help="Reset target directory before upload")
+    subparsers.add_parser("install", help="Install app on target")
+    args = parser.parse_args()
+
+    try:
+        check()
+        config()
+        if args.command == "reset":
+            log(f"Resetting {target}:{target_path}")
+            upload(reset=True)
+            log(f"Reset {target}:{target_path} done")
+        elif args.command == "install":
+            install()
+        else:
+            upload()
+            execute()
+    except KeyboardInterrupt:
+        print("\nUploading cancelled by user")
+        sys.exit(0)
+    except Exception as e:
+        log("Error: " + str(e))
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

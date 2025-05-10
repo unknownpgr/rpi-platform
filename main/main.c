@@ -22,6 +22,7 @@
 #include <services/encoder.h>
 #include <services/clock.h>
 #include <services/imu.h>
+#include <services/line.h>
 #include <services/drive.h>
 #include <services/music.h>
 #include <services/vsense.h>
@@ -87,6 +88,7 @@ void init_em()
     em_add_service(&em_local_3, &service_sensor);
     em_add_service(&em_local_3, &service_sensor_low);
     em_add_service(&em_local_3, &service_sensor_high);
+    em_add_service(&em_local_3, &service_line);
     em_add_service(&em_local_3, &service_vsense);
     em_add_service(&em_local_3, &service_drive);
 }
@@ -155,7 +157,7 @@ int application_start()
             // Redirect stdin to pipe_write[0]
             dup2(pipe_write[0], 0);
 
-            execlp("node", "node", "../src-broaker/app.js", fd_str, (char *)NULL);
+            execlp("node", "node", "../server/app.js", fd_str, (char *)NULL);
             print("Failed to start UI server");
             exit(0);
         }
@@ -246,7 +248,7 @@ int application_start()
             }
             else if (strcmp(buffer, "drive") == 0)
             {
-                em_set_state(&em_context, EM_STATE_MUSIC);
+                em_set_state(&em_context, EM_STATE_DRIVE);
             }
             else if (strcmp(buffer, "idle") == 0)
             {

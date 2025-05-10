@@ -1,0 +1,7 @@
+.git
+.vscode
+.venv
+.tmp
+frontend/node_modules
+tests
+README.md

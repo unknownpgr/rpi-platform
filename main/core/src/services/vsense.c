@@ -5,7 +5,7 @@
 #include <ports/dev.h>
 #include <ports/timer.h>
 
-float vsense_read()
+static float vsense_read()
 {
     uint8_t address[2] = {1 << 3, 1 << 3};
     uint8_t data[2];
@@ -14,26 +14,26 @@ float vsense_read()
     // Read ADC value
     dev_spi_transfer(address, data, sizeof(data));
     uint16_t adc = (((uint16_t)(data[0])) & 0b1111) << 8 | data[1];
-    return adc * 0.01926f;
+    return adc * 0.01926f; // Experimentally determined constant
 }
 
 loop_t loop_vsense;
 
-void vsense_setup()
+static void vsense_setup()
 {
     dev_spi_enable(true);
     loop_init(&loop_vsense, 100000000); // 100ms
     state->battery_voltage = vsense_read();
 }
 
-void vsense_loop()
+static void vsense_loop()
 {
     // VSense loop
     uint32_t dt_ns = 0;
     if (loop_update(&loop_vsense, &dt_ns))
     {
         // Update vsense value with IIR filter
-        state->battery_voltage = state->battery_voltage * 0.99 + vsense_read() * 0.01;
+        state->battery_voltage = state->battery_voltage * 0.95 + vsense_read() * 0.05;
     }
 }
 

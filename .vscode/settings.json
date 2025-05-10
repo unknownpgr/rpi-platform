@@ -1,17 +1,7 @@
 {
   "files.associations": {
     "*.py": "python",
-    "sensor-service.h": "c",
-    "state.h": "c",
-    "sensor.h": "c",
-    "music.h": "c",
-    "log.h": "c",
-    "clock.h": "c",
-    "time.h": "c",
-    "em.h": "c",
-    "stdlib.h": "c",
-    "encoder.h": "c",
-    "main.h": "c",
-    "old_main": "cpp"
+    "*.h": "c",
+    "*.c": "c"
   }
 }

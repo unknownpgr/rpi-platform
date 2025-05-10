@@ -33,7 +33,7 @@ typedef union
     uint8_t buf[sizeof(calibration_t)];
 } calibration_union_t;
 
-void sensor_save_calibration()
+static void sensor_save_calibration()
 {
     calibration_union_t union_data = {0};
     uint8_t buf[sizeof(union_data.buf) + 5] = {0};
@@ -72,7 +72,7 @@ void sensor_save_calibration()
     print("Calibration saved to %s", CALIBRATION_FILE);
 }
 
-void sensor_load_calibration()
+static void sensor_load_calibration()
 {
     // Read calibration data from file
     FILE *file = fopen(CALIBRATION_FILE, "rb");
@@ -119,7 +119,7 @@ void sensor_load_calibration()
     print("Calibration loaded from %s", CALIBRATION_FILE);
 }
 
-void sensor_select(uint8_t sensor_index)
+static void sensor_select(uint8_t sensor_index)
 {
     uint8_t s0 = sensor_index & 0b0001;
     uint8_t s1 = sensor_index & 0b0010;
@@ -164,7 +164,7 @@ void sensor_select(uint8_t sensor_index)
     }
 }
 
-uint16_t sensor_read_raw(uint8_t sensor_index)
+static uint16_t sensor_read_raw(uint8_t sensor_index)
 {
     uint8_t tx[] = {0 << 3, 0 << 3};
     uint8_t rx[sizeof(tx)] = {0};
@@ -189,7 +189,7 @@ uint16_t sensor_read_raw(uint8_t sensor_index)
     return data;
 }
 
-void sensor_read_one()
+static void sensor_read_one()
 {
     static uint8_t sensor_index = 0;
 
@@ -220,7 +220,7 @@ void sensor_read_one()
     }
 }
 
-void sensor_setup()
+static void sensor_setup()
 {
     // Set GPIO mode
     dev_spi_enable(true);
@@ -234,12 +234,12 @@ void sensor_setup()
     sensor_load_calibration();
 }
 
-void sensor_loop()
+static void sensor_loop()
 {
     sensor_read_one();
 }
 
-void sensor_setup_low()
+static void sensor_setup_low()
 {
     for (uint8_t i = 0; i < NUM_SENSORS; i++)
     {
@@ -247,7 +247,7 @@ void sensor_setup_low()
     }
 }
 
-void sensor_loop_low()
+static void sensor_loop_low()
 {
     for (uint8_t i = 0; i < NUM_SENSORS; i++)
     {
@@ -259,7 +259,7 @@ void sensor_loop_low()
     }
 }
 
-void sensor_setup_high()
+static void sensor_setup_high()
 {
     for (uint8_t i = 0; i < NUM_SENSORS; i++)
     {
@@ -267,7 +267,7 @@ void sensor_setup_high()
     }
 }
 
-void sensor_loop_high()
+static void sensor_loop_high()
 {
     for (uint8_t i = 0; i < NUM_SENSORS; i++)
     {
@@ -279,7 +279,7 @@ void sensor_loop_high()
     }
 }
 
-void sensor_teardown()
+static void sensor_teardown()
 {
     sensor_save_calibration();
 }
@@ -307,7 +307,7 @@ em_service_t service_sensor_high = {
 
 // Functions below are currently not used.
 
-void sensor_print_bar(float bar_value)
+static void sensor_print_bar(float bar_value)
 {
     if (bar_value < 0)
     {
@@ -335,7 +335,7 @@ void sensor_print_bar(float bar_value)
     printf("%s", bar);
 }
 
-void sensor_test_led()
+static void sensor_test_led()
 {
     dev_gpio_set_pin(IR_SEN);
 
@@ -353,7 +353,7 @@ void sensor_test_led()
     }
 }
 
-void sensor_test_raw()
+static void sensor_test_raw()
 {
     uint16_t sensor_data[NUM_SENSORS];
     while (true)
@@ -369,7 +369,7 @@ void sensor_test_raw()
     }
 }
 
-void sensor_test_calibration()
+static void sensor_test_calibration()
 {
     uint16_t sensor_data[NUM_SENSORS];
     uint32_t loop_counter = 0;
