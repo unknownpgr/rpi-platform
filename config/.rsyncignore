@@ -2,7 +2,6 @@
 .vscode
 .venv
 .tmp
-src-ui/node_modules
-scripts
-upload
+frontend/node_modules
+tests
 README.md

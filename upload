@@ -79,7 +79,7 @@ def upload():
     subprocess.run(
         [
             "rsync",
-            "--exclude-from=configs/.rsyncignore",
+            "--exclude-from=config/.rsyncignore",
             "-avz",
             "--delete",
             ".",
@@ -90,7 +90,25 @@ def upload():
 
 def execute():
     log(f"Executing run.sh on {target}")
-    subprocess.run(["ssh", "-t", target, "bash", f"{target_path}/run.sh"])
+    subprocess.run(["ssh", "-t", target, f"{target_path}/upload", "install"])
+
+
+def install():
+    '''
+    Note: this function will be executed on the target machine
+    '''
+    log("Building app")
+    os.makedirs("build", exist_ok=True)
+    os.chdir("build")
+    subprocess.run(["cmake", ".."])
+    subprocess.run(["make"])
+    os.chdir("..")
+
+    log("Installing app")
+    subprocess.run(["sudo", "cp", "config/app.service", "/etc/systemd/system/"])
+    subprocess.run(["sudo", "systemctl", "daemon-reload"])
+    subprocess.run(["sudo", "systemctl", "enable", "app.service"])
+    subprocess.run(["sudo", "systemctl", "restart", "app.service"])
 
 
 def main():
@@ -98,16 +116,20 @@ def main():
     os.chdir(script_dir)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--reset", action="store_true", help="Reset target directory before upload")
+    subparsers = parser.add_subparsers(dest="command", required=False)
+    subparsers.add_parser("reset", help="Reset target directory before upload")
+    subparsers.add_parser("install", help="Install app on target")
     args = parser.parse_args()
 
     try:
         check()
         config()
-        if args.reset:
+        if args.command == "reset":
             log(f"Resetting {target}:{target_path}")
             subprocess.run(["ssh", "-t", target, f"rm -rf {target_path}/*"])
             log(f"Reset {target}:{target_path} done")
+        elif args.command == "install":
+            install()
         else:
             upload()
             execute()
