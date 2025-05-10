@@ -6,18 +6,18 @@
 
 void state_print_offsets(state_t *state, char *buffer)
 {
-  buffer += sprintf(buffer, "STATE_DEFINITION_START\n");
-  uint64_t base_address = (uint64_t)(uint8_t *)state;
-  buffer += sprintf(buffer, "state:%lu\n", (uint64_t)(uint8_t *)(&state->state) - base_address);
-  buffer += sprintf(buffer, "sensor_low:%lu\n", (uint64_t)(uint8_t *)(&state->sensor_low) - base_address);
-  buffer += sprintf(buffer, "sensor_high:%lu\n", (uint64_t)(uint8_t *)(&state->sensor_high) - base_address);
-  buffer += sprintf(buffer, "sensor_raw:%lu\n", (uint64_t)(uint8_t *)(&state->sensor_raw) - base_address);
-  buffer += sprintf(buffer, "sensor_data:%lu\n", (uint64_t)(uint8_t *)(&state->sensor_data) - base_address);
-  buffer += sprintf(buffer, "position:%lu\n", (uint64_t)(uint8_t *)(&state->position) - base_address);
-  buffer += sprintf(buffer, "speed:%lu\n", (uint64_t)(uint8_t *)(&state->speed) - base_address);
-  buffer += sprintf(buffer, "battery_voltage:%lu\n", (uint64_t)(uint8_t *)(&state->battery_voltage) - base_address);
-  buffer += sprintf(buffer, "track:%lu\n", (uint64_t)(uint8_t *)(&state->track) - base_address);
-  buffer += sprintf(buffer, "encoder_left:%lu\n", (uint64_t)(uint8_t *)(&state->encoder_left) - base_address);
-  buffer += sprintf(buffer, "encoder_right:%lu\n", (uint64_t)(uint8_t *)(&state->encoder_right) - base_address);
-  buffer += sprintf(buffer, "STATE_DEFINITION_END\n");
+  buffer += sprintf(buffer, "[");
+  uint8_t* base_address = (uint8_t *)state;
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->state - base_address));
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->sensor_low - base_address));
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->sensor_high - base_address));
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->sensor_raw - base_address));
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->sensor_data - base_address));
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->position - base_address));
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->speed - base_address));
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->battery_voltage - base_address));
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->track - base_address));
+  buffer += sprintf(buffer, "%lu,", (uint64_t)(&state->encoder_left - base_address));
+  buffer += sprintf(buffer, "%lu", (uint64_t)(&state->encoder_right - base_address));
+  buffer += sprintf(buffer, "]");
 }

@@ -1,5 +1,5 @@
 const fs = require("fs");
-const stateDefinition = require("./state-definition.json");
+const readState = require("./state-reader.js");
 
 const sharedMemoryPath = "/dev/shm/state";
 const sharedMemorySize = 4096;
@@ -54,26 +54,12 @@ class Robot {
 
     switch (this.status) {
       case STATUS_INITIALIZING: {
-        const index = this.inputBuffer.indexOf("STATE_DEFINITION_END");
-        if (index < 0) break;
-
-        const parts = this.inputBuffer.split("STATE_DEFINITION_END");
-        const [_, definition] = parts[0].split("STATE_DEFINITION_START");
-
-        this.mappingStructure = definition
-          .split("\n")
-          .map((x) => x.trim())
-          .filter((x) => x.length > 0)
-          .map((x) => {
-            const [key, value] = x.split(":");
-            return {
-              key: key.split("."),
-              offset: +value,
-              type: stateDefinition[key],
-            };
-          });
-        this.inputBuffer = parts[1];
-        this.status = STATUS_INITIALIZED;
+        const regex = /^\[([0-9,]+)\]$/;
+        const match = this.inputBuffer.match(regex);
+        if (match) {
+          this.offsets = match[1].split(",").map((x) => +x);
+          this.status = STATUS_INITIALIZED;
+        }
         break;
       }
 
@@ -100,55 +86,7 @@ class Robot {
     if (newBuffer.equals(this.shmBuffer)) return;
     this.shmBuffer = newBuffer;
 
-    const newState = {};
-
-    this.mappingStructure.forEach(({ key, offset, type }) => {
-      let value;
-      switch (type) {
-        case "uint8":
-          value = this.shmBuffer.readUInt8(offset);
-          break;
-        case "uint16":
-          value = this.shmBuffer.readUInt16LE(offset);
-          break;
-        case "uint32":
-          value = this.shmBuffer.readUInt32LE(offset);
-          break;
-        case "float":
-          value = this.shmBuffer.readFloatLE(offset);
-          break;
-        case "double":
-          value = this.shmBuffer.readDoubleLE(offset);
-          break;
-        case "bool":
-          value = this.shmBuffer.readUInt8(offset) !== 0;
-          break;
-        case "uint16[16]":
-          value = [];
-          for (let i = 0; i < 16; i++) {
-            value.push(this.shmBuffer.readUInt16LE(offset + i * 2));
-          }
-          break;
-        case "double[16]":
-          value = [];
-          for (let i = 0; i < 16; i++) {
-            value.push(this.shmBuffer.readDoubleLE(offset + i * 8));
-          }
-          break;
-        default:
-          // Ignore unknown types
-          return;
-      }
-
-      // Build the state object
-      let obj = newState;
-      for (let i = 0; i < key.length - 1; i++) {
-        if (!obj[key[i]]) obj[key[i]] = {};
-        obj = obj[key[i]];
-      }
-      obj[key[key.length - 1]] = value;
-    });
-
+    const newState = readState(this.shmBuffer, this.offsets);
     this.state = newState;
     this.notify({ type: "state", data: this.state });
   }
