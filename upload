@@ -105,9 +105,9 @@ def execute():
 
 
 def install():
-    '''
+    """
     Note: this function will be executed on the target machine
-    '''
+    """
     log("Building app")
     os.makedirs("build", exist_ok=True)
     os.chdir("build")
@@ -116,7 +116,9 @@ def install():
     os.chdir("..")
 
     log("Installing app")
-    subprocess.run(["sudo", "cp", "config/app.service", "/etc/systemd/system/"], check=True)
+    subprocess.run(
+        ["sudo", "cp", "config/app.service", "/etc/systemd/system/"], check=True
+    )
     log("Reloading systemd")
     subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
     log("Enabling app")
@@ -134,7 +136,10 @@ def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=False)
     subparsers.add_parser("reset", help="Reset target directory before upload")
-    subparsers.add_parser("install", help="NOTE: this command is intended to be run on the current machine. It will install the app on the CURRENT machine.")
+    subparsers.add_parser(
+        "install",
+        help="NOTE: this command is intended to be run on the current machine. It will install the app on the CURRENT machine.",
+    )
 
     args = parser.parse_args()
 
