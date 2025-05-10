@@ -21,9 +21,10 @@
 #define TRACK_LEFT 0x01
 #define TRACK_RIGHT 0x02
 
-static double default_speed = 15;
-static double default_curvature = 1.5;
-static double acceleration = 20;
+static double default_speed;
+static double default_curvature;
+static double acceleration;
+static int end_count;
 
 int32_t encoer_left_prev;
 int32_t encoder_right_prev;
@@ -31,14 +32,13 @@ pid_control_t pid_left;
 pid_control_t pid_right;
 loop_t loop_motor;
 mark_t mark;
-int both_count = 0;
 
 void drive_setup()
 {
-    default_speed = 1;
+    default_speed = 15;
     default_curvature = 1.5;
     acceleration = 20;
-    both_count = 0;
+    end_count = 0;
 
     pid_init(&pid_left);
     pid_init(&pid_right);
@@ -78,9 +78,9 @@ void drive_loop()
         break;
     case MARK_BOTH:
         print("MARK_BOTH");
-        both_count++;
+        end_count++;
 
-        if (both_count == 2)
+        if (end_count == 2)
         {
             default_speed = 0;
             acceleration = 40;

@@ -9,7 +9,6 @@
 
 static double sensor_positions[NUM_SENSORS];
 static double candidate_positions[NUM_POS_CANDIDATES];
-static double prev_position = 0;
 
 static double line_mu(double distance)
 {
@@ -31,13 +30,14 @@ static void line_setup()
   {
     sensor_positions[i] = i * 2.0 / (NUM_SENSORS - 1) - 1.0;
   }
-  prev_position = 0;
 }
 
 static void line_loop_weighted_sum()
 {
   double weighted_sum = 0;
   double weight_sum = 0;
+  double prev_position = state->position;
+
   for (int i = 0; i < NUM_SENSORS; i++)
   {
     double weight = state->sensor_data[i];
@@ -62,6 +62,7 @@ static void line_loop_bayesian()
 {
   double optimal_likelihood = 999999999;
   double optimal_position = 0;
+  double prev_position = state->position;
 
   for (int i = 0; i < NUM_POS_CANDIDATES; i++)
   {
