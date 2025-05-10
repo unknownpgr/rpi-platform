@@ -74,17 +74,29 @@ def config():
     log("NOTE: to reset config, delete connection.json.tmp")
 
 
-def upload():
+def upload(reset=False):
     log(f"Uploading files to {target}:{target_path}")
-    subprocess.run(
-        [
-            "rsync",
-            "--exclude-from=config/.rsyncignore",
-            "-avz",
-            ".",
-            f"{target}:{target_path}",
-        ]
-    )
+    if reset:
+        subprocess.run(
+            [
+                "rsync",
+                "--exclude-from=config/.rsyncignore",
+                "-avz",
+                "--delete",
+                ".",
+                f"{target}:{target_path}",
+            ]
+        )
+    else:
+        subprocess.run(
+            [
+                "rsync",
+                "--exclude-from=config/.rsyncignore",
+                "-avz",
+                ".",
+                f"{target}:{target_path}",
+            ]
+        )
 
 
 def execute():
@@ -105,9 +117,14 @@ def install():
 
     log("Installing app")
     subprocess.run(["sudo", "cp", "config/app.service", "/etc/systemd/system/"], check=True)
+    log("Reloading systemd")
     subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
+    log("Enabling app")
     subprocess.run(["sudo", "systemctl", "enable", "app.service"], check=True)
+    log("Restarting app")
     subprocess.run(["sudo", "systemctl", "restart", "app.service"], check=True)
+    log("Syncing filesystem")
+    subprocess.run(["sudo", "sync"], check=True)
 
 
 def main():
@@ -125,7 +142,7 @@ def main():
         config()
         if args.command == "reset":
             log(f"Resetting {target}:{target_path}")
-            subprocess.run(["ssh", "-t", target, f"rm -rf {target_path}/*"])
+            upload(reset=True)
             log(f"Reset {target}:{target_path} done")
         elif args.command == "install":
             install()

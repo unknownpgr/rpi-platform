@@ -35,7 +35,7 @@ int both_count = 0;
 
 void drive_setup()
 {
-    default_speed = 15;
+    default_speed = 1;
     default_curvature = 1.5;
     acceleration = 20;
     both_count = 0;
@@ -67,9 +67,7 @@ void drive_setup()
 
 void drive_loop()
 {
-    uint32_t dt_ns;
     uint8_t current_mark = mark_state_machine(&mark, state->sensor_data, state->position);
-
     switch (current_mark)
     {
     case MARK_LEFT:
@@ -95,6 +93,7 @@ void drive_loop()
     }
 
     // Motor control loop
+    uint32_t dt_ns;
     if (!loop_update(&loop_motor, &dt_ns))
         return;
 
@@ -144,6 +143,7 @@ void drive_loop()
 
 void drive_teardown()
 {
+    state->speed = 0;
     motor_set_velocity(0, 0);
     motor_enable(false);
 }

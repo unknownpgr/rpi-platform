@@ -6,7 +6,7 @@ const WebSocket = require("ws");
 const Robot = require("./robot");
 
 const PORT = 80;
-const UI_PATH = path.join(__dirname, "..", "src-ui", "dist");
+const UI_PATH = path.join(__dirname, "..", "frontend", "dist");
 const app = express();
 
 // Serve static files from public directory
