@@ -15,28 +15,28 @@ include_directories(src-main/core/include)
 add_executable(
     app
     
-    src-main/entry.c
-    src-main/main.c
-    src-main/core/em.c  
-    src-main/core/state.c
+    main/entry.c
+    main/main.c
+    main/core/em.c  
+    main/core/state.c
     
-    # src-main/core/services/knob.c
-    src-main/core/src/services/music.c
-    src-main/core/src/services/radio.c
-    src-main/core/src/services/sensor.c
-    src-main/core/src/services/drive.c
-    src-main/core/src/services/vsense.c
-    src-main/core/src/services/imu.c
-    src-main/core/src/services/clock.c
-    src-main/core/src/services/encoder.c
+    # main/core/services/knob.c
+    main/core/src/services/music.c
+    main/core/src/services/radio.c
+    main/core/src/services/sensor.c
+    main/core/src/services/drive.c
+    main/core/src/services/vsense.c
+    main/core/src/services/imu.c
+    main/core/src/services/clock.c
+    main/core/src/services/encoder.c
 
-    src-main/core/src/algorithms/mark.c
-    src-main/core/src/algorithms/pid.c
+    main/core/src/algorithms/mark.c
+    main/core/src/algorithms/pid.c
     
-    src-main/infra/dev.c
-    src-main/infra/log.c
-    src-main/infra/motor.c
-    src-main/infra/timer.c
+    main/infra/dev.c
+    main/infra/log.c
+    main/infra/motor.c
+    main/infra/timer.c
 )
 target_link_libraries(app m)
 find_package(Threads REQUIRED)

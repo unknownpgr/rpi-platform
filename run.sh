@@ -14,7 +14,7 @@ cmake ..
 make
 cd ..
 
-sudo cp app.service /etc/systemd/system/
+sudo cp config/app.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable app.service
 sudo systemctl restart app.service
