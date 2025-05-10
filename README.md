@@ -11,7 +11,7 @@ A Clean Architecture-based, nearly pure C project for real-time robotics applica
 
 ## How to Upload the Code to the Raspberry Pi
 
-Simply run the `upload.sh` script. This script performs the following actions:
+Simply run the `upload` script. This script performs the following actions:
 
 1. Copies the contents of this directory to the Raspberry Pi.
 2. Executes the `run.sh` script on the Raspberry Pi.

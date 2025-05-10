@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import subprocess
+import json
+
+target = None
+target_path = None
+
+
+def log(message):
+    # Set terminal color to green
+    print("\033[1;32m" + message + "\033[0m")
+
+
+def check():
+    # Check if rsync is installed
+    try:
+        subprocess.run(["rsync", "--version"], check=True)
+    except:
+        log("rsync is not installed. Please install it first.")
+        sys.exit(1)
+
+
+def config():
+    global target
+    global target_path
+
+    # Check if config.json.tmp exists
+    try:
+        with open("config.json.tmp", "r") as f:
+            config = json.load(f)
+            target = config["target"]
+            target_path = config["target_path"]
+        log("Config loaded from config.json.tmp")
+        print("Target: " + target)
+        print("Target path: " + target_path)
+        log("NOTE: to reset config, delete config.json.tmp")
+        return
+    except:
+        pass
+
+    if target is None:
+        while True:
+            target = input("Enter target: ")
+            target = target.strip()
+            if target == "":
+                print("Target is empty. Please try again.")
+                continue
+            confirm = input("Target: " + target + ". Confirm? (Y/n): ")
+            if confirm.lower() in ["y", "yes", ""]:
+                break
+            else:
+                print("Target is not confirmed. Please try again.")
+
+    if target_path is None:
+        while True:
+            target_path = input("Enter target path: ")
+            target_path = target_path.strip()
+            if target_path == "":
+                print("Target path is empty. Please try again.")
+                continue
+            confirm = input("Target path: " + target_path + ". Confirm? (Y/n): ")
+            if confirm.lower() in ["y", "yes", ""]:
+                break
+            else:
+                print("Target path is not confirmed. Please try again.")
+
+    with open("config.json.tmp", "w") as f:
+        json.dump({"target": target, "target_path": target_path}, f)
+
+    log("Config saved to config.json.tmp")
+
+
+def upload():
+    log(f"Uploading files to {target}:{target_path}")
+    subprocess.run(
+        [
+            "rsync",
+            "--exclude-from=.rsyncignore",
+            "-avz",
+            "--delete",
+            ".",
+            f"{target}:{target_path}",
+        ]
+    )
+
+
+def execute():
+    log(f"Executing run.sh on {target}")
+    subprocess.run(["ssh", "-t", target, "bash", f"{target_path}/run.sh"])
+
+
+def main():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_dir)
+    try:
+        check()
+        config()
+        upload()
+        execute()
+    except KeyboardInterrupt:
+        print("\nUploading cancelled by user")
+        sys.exit(0)
+    except Exception as e:
+        log("Error: " + str(e))
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
