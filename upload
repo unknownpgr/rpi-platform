@@ -17,7 +17,7 @@ def log(message):
 def check():
     # Check if rsync is installed
     try:
-        subprocess.run(["rsync", "--version"], check=True)
+        subprocess.run(["rsync", "--version"], stdout=subprocess.DEVNULL, check=True)
     except:
         log("rsync is not installed. Please install it first.")
         sys.exit(1)
@@ -34,9 +34,6 @@ def config():
             target = config["target"]
             target_path = config["target_path"]
         log("Config loaded from config.json.tmp")
-        print("Target: " + target)
-        print("Target path: " + target_path)
-        log("NOTE: to reset config, delete config.json.tmp")
         return
     except:
         pass
@@ -71,6 +68,9 @@ def config():
         json.dump({"target": target, "target_path": target_path}, f)
 
     log("Config saved to config.json.tmp")
+    print("Target: " + target)
+    print("Target path: " + target_path)
+    log("NOTE: to reset config, delete config.json.tmp")
 
 
 def upload():
