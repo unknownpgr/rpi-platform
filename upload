@@ -4,6 +4,7 @@ import os
 import sys
 import subprocess
 import json
+import argparse
 
 target = None
 target_path = None
@@ -27,13 +28,13 @@ def config():
     global target
     global target_path
 
-    # Check if config.json.tmp exists
+    # Check if connection.json.tmp exists
     try:
-        with open("config.json.tmp", "r") as f:
+        with open("config/connection.json.tmp", "r") as f:
             config = json.load(f)
             target = config["target"]
             target_path = config["target_path"]
-        log("Config loaded from config.json.tmp")
+        log("Config loaded from connection.json.tmp")
         return
     except:
         pass
@@ -64,13 +65,13 @@ def config():
             else:
                 print("Target path is not confirmed. Please try again.")
 
-    with open("config.json.tmp", "w") as f:
+    with open("config/connection.json.tmp", "w") as f:
         json.dump({"target": target, "target_path": target_path}, f)
 
-    log("Config saved to config.json.tmp")
+    log("Config saved to connection.json.tmp")
     print("Target: " + target)
     print("Target path: " + target_path)
-    log("NOTE: to reset config, delete config.json.tmp")
+    log("NOTE: to reset config, delete connection.json.tmp")
 
 
 def upload():
@@ -78,7 +79,7 @@ def upload():
     subprocess.run(
         [
             "rsync",
-            "--exclude-from=.rsyncignore",
+            "--exclude-from=configs/.rsyncignore",
             "-avz",
             "--delete",
             ".",
@@ -95,11 +96,21 @@ def execute():
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(script_dir)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--reset", action="store_true", help="Reset target directory before upload")
+    args = parser.parse_args()
+
     try:
         check()
         config()
-        upload()
-        execute()
+        if args.reset:
+            log(f"Resetting {target}:{target_path}")
+            subprocess.run(["ssh", "-t", target, f"rm -rf {target_path}/*"])
+            log(f"Reset {target}:{target_path} done")
+        else:
+            upload()
+            execute()
     except KeyboardInterrupt:
         print("\nUploading cancelled by user")
         sys.exit(0)
